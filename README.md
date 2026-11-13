@@ -6,6 +6,8 @@ Prototyp aplikace, která automatizuje řízení o povolení stavby od podání 
 - **Úřad** – systém připraví vše, co může; úředník rozhoduje a podepisuje.
 - **Koncept** – rozbor skutečného spisu, navržené změny legislativy, architektura a další kroky.
 
+Vzhled vychází z tokenů GOV.CZ Design Systemu 4.7.3 (barvy, písmo Roboto, zaoblení); nepoužívá jeho komponenty.
+
 Stav: klikací prototyp. Analýza dokumentace, registry a platba jsou simulované na anonymizovaných datech skutečného spisu.
 
 ## Obsah
