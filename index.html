@@ -211,6 +211,13 @@ pre{font-family:var(--mono);font-size:12.5px;background:var(--sunk);border-radiu
 .find li{display:flex;gap:10px;align-items:baseline}
 details.inner{border:1px solid var(--line);border-radius:8px;padding:8px 12px}
 details.inner summary{cursor:pointer;font-weight:700}
+dialog#dlg{border:1px solid var(--line);border-radius:8px;padding:0;width:min(980px,calc(100% - 24px));max-height:calc(100% - 24px);background:var(--surface);color:var(--ink)}
+dialog#dlg::backdrop{background:rgba(6,11,27,.55)}
+.dlg-h{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--surface);z-index:1}
+.dlg-b{padding:16px;overflow:auto}
+.dlg-b iframe{width:100%;height:72vh;border:1px solid var(--line);border-radius:4px;background:#fff}
+.dlg-b pre{white-space:pre-wrap;word-break:break-word;max-height:70vh}
+.scrollbox{max-height:46vh;overflow:auto;border:1px solid var(--line);border-radius:4px;padding:0 10px}
 </style>
 </head>
 <body>
@@ -234,6 +241,7 @@ details.inner summary{cursor:pointer;font-weight:700}
 </header>
 <main class="wrap" id="app"></main>
 <div class="toast" id="toast" hidden></div>
+<dialog id="dlg"><div class="dlg-h"><h3 id="dlg-t"></h3><div class="row"><button class="btn" id="dlg-back" data-act="dlgBack" hidden>Zpět na dokument</button><button class="btn" data-act="closeDlg">Zavřít</button></div></div><div class="dlg-b" id="dlg-b"></div></dialog>
 
 <script src="vendor/jszip.min.js"></script>
 <script src="vendor/spark-md5.min.js"></script>
@@ -663,14 +671,52 @@ function oDoruceni(){
     ${!cil && S.phase==="approved" ? `<div class="row" style="margin-top:12px"><button class="btn brand" data-act="waive">Simulovat: všichni účastníci se vzdali odvolání</button><span class="small muted">Jinak právní moc nastane po 15 dnech.</span></div>`:""}
   </div>`;
 }
+const realR = () => (S.real && window.Povolovna && Povolovna.result) || null;
+const PNAME = { zadost:"Žádost z portálu", A:"A Průvodní list", B:"B Souhrnná technická zpráva", C:"C Situační výkresy", D:"D Dokumentace objektů", doklad:"Doklady", priloha:"Přidané přílohy", jine:"Mimo manifest" };
+const hlava = t => `<p class="small muted">Dopravní a energetický stavební úřad · Odbor staveb drah<br>Řízení ${realR()?.zadost?.pid ? escH(realR().zadost.pid) : "R/2026/00001"} · sp. zn. a č. j. přidělila spisová služba</p><h4>${t}</h4>`;
+function docPreview(n){
+  const r = realR(), zad = r?.zadost, kdo = zad?.zadatel ? escH(zad.zadatel.nazev) + (zad.zastupce ? ", v zastoupení " + escH(zad.zastupce.nazev) : "") : "Dopravní podnik, a.s., v zastoupení Projekční kancelář, s.r.o.";
+  if (n === "1"){
+    const files = r ? `<div class="scrollbox"><table><tr><th>Soubor</th><th>Část</th><th></th></tr>${r.files.map((f,i)=>`<tr><td class="small">${escH(f.nazev)}</td><td class="small">${PNAME[f.part]||f.part}</td><td class="r"><button class="btn" data-act="prevFile" data-i="${i}">Náhled</button></td></tr>`).join("")}</table></div>`
+      : `<div class="tblwrap"><table><tr><th>Část</th><th class="r">Souborů</th></tr>${[["A Průvodní list",1],["B Souhrnná technická zpráva",1],["C Situační výkresy",3],["D Dokumentace objektů",20],["Doklady",42]].map(x=>`<tr><td>${x[0]}</td><td class="r num">${x[1]}</td></tr>`).join("")}</table></div><p class="small muted">V ukázce nejsou skutečné soubory. Po nahrání vlastní dokumentace tu bude náhled každého souboru.</p>`;
+    return ["Žádost o povolení záměru", `<div class="stack"><div class="doc" style="max-width:none">${hlava("ŽÁDOST O POVOLENÍ ZÁMĚRU")}
+      <p><b>Záměr:</b> ${C.nazev}</p><p><b>Žadatel:</b> ${kdo}</p>
+      <p><b>Řízení:</b> povolení záměru ve zrychleném řízení</p>
+      <p><b>Pozemky:</b> ${r && (r.A?.pozemky.length || zad?.pozemky.length) ? (r.A?.pozemky.length ? r.A.pozemky : zad.pozemky).map(p=>escH(p.parcela)).join(", ") : C.pozemky.map(p=>p[0]).join(", ")}</p>
+      <p class="small muted">Žádost systém sestavil z nahrané dokumentace, stavebník ji potvrdil při odeslání.</p></div>
+      <h3>Přílohy</h3>${files}</div>`];
+  }
+  if (n === "2") return ["Potvrzení přijetí a doklad o úhradě", `<div class="doc" style="max-width:none">${hlava("POTVRZENÍ PŘIJETÍ PODÁNÍ")}
+    <p>Stavební úřad potvrzuje, že přijal žádost o povolení záměru ve zrychleném řízení: <b>${C.nazev}</b>.</p>
+    <p><b>Žadatel:</b> ${kdo}</p>
+    <p><b>Správní poplatek:</b> ${kc(C.poplatek)}, uhrazen při podání. Výzva k zaplacení se nevydává.</p>
+    <p><b>Vyřizuje:</b> Odbor staveb drah. Oprávněnou úřední osobu určil systém podle příslušnosti.</p>
+    <p class="small muted">Vyhotovil systém, opatřeno elektronickou pečetí úřadu.</p></div>`];
+  if (n === "3"){
+    const ks = r ? r.kontroly.map(k=>[k.vysledek==="ok"?"ok":k.vysledek==="blokuje"?"bad":k.vysledek==="upozorneni"?"warn":"idle", escH(k.nazev), escH(k.zduvodneni)]) : checks();
+    return ["Protokol o kontrolách a určení účastníků", `<div class="doc" style="max-width:none">${hlava("PROTOKOL O KONTROLÁCH")}
+      <table><tr><th>Výsledek</th><th>Kontrola</th><th>Zjištění a zdroj</th></tr>${ks.map(k=>`<tr><td><span class="pill ${k[0]}">${{ok:"v pořádku",warn:"upozornění",bad:"brání",idle:"neprovedeno"}[k[0]]}</span></td><td><b>${k[1]}</b></td><td class="small">${k[2]}</td></tr>`).join("")}</table>
+      <p style="margin-top:12px"><b>Účastníci řízení${r?" (ukázka, z vašich souborů se zatím neurčují)":""}:</b> ${C.ucastnici.map(u=>u[0]+" ("+u[1]+")").join("; ")}.</p>
+      <p class="small muted">Vyhotovil systém. Každý řádek odkazuje na pravidlo a zdroj, ze kterého výsledek vzešel.</p></div>`];
+  }
+  if (n === "4") return ["Rozhodnutí – povolení stavby", oRozhodnuti()];
+  return ["Doložka právní moci, ověřená dokumentace, štítek", `<div class="doc" style="max-width:none">${hlava("DOLOŽKA PRÁVNÍ MOCI")}
+    <p>Rozhodnutí o povolení stavby <b>${C.nazev}</b> nabylo právní moci a je vykonatelné.</p>
+    <p>Ověřená projektová dokumentace je stavebníkovi zpřístupněna v účtu řízení, každý soubor je opatřen elektronickou pečetí úřadu.</p>
+    <div style="border:2px solid var(--ink);padding:16px;margin-top:14px;text-align:center"><b style="font-size:20px;letter-spacing:.1em">STAVBA POVOLENA</b><br>${C.nazev}<br><span class="small">Stavebník: ${kdo.split(", v zast")[0]} · Stavbu povolil: Dopravní a energetický stavební úřad</span></div>
+    <p class="small muted" style="margin-top:10px">Vyhotovil systém v okamžiku právní moci.</p></div>`];
+}
+let dlgDoc = null, dlgUrl = null;
+function showDlg(title, html, back){ $("#dlg-t").textContent = title; $("#dlg-b").innerHTML = html; $("#dlg-back").hidden = !back; const d = $("#dlg"); if (!d.open) d.showModal(); d.scrollTop = 0; }
+function freeUrl(){ if (dlgUrl){ URL.revokeObjectURL(dlgUrl); dlgUrl = null; } }
 function oSpis(){
   const cil = S.law === "cil", n = cil ? 5 : S.phase === "final" ? 5 : S.phase === "approved" ? 4 : 3;
-  const docs = [["1","Žádost o povolení záměru, strukturovaná data a 70 příloh","podání"],["2","Potvrzení přijetí a doklad o úhradě poplatku","vyhotovil systém"],["3","Protokol o kontrolách a určení účastníků","vyhotovil systém"],["4","Rozhodnutí – povolení stavby",cil?"vyhotovil systém":"podepsal úředník"],["5","Doložka právní moci, ověřená dokumentace, štítek","vyhotovil systém"]];
+  const docs = [["1",`Žádost o povolení záměru, strukturovaná data a ${realR()?realR().files.length:70} příloh`,"podání"],["2","Potvrzení přijetí a doklad o úhradě poplatku","vyhotovil systém"],["3","Protokol o kontrolách a určení účastníků","vyhotovil systém"],["4","Rozhodnutí – povolení stavby",cil?"vyhotovil systém":"podepsal úředník"],["5","Doložka právní moci, ověřená dokumentace, štítek","vyhotovil systém"]];
   return `<div class="card">
     <div class="sec-h"><h3>Spis vzniká sám</h3><span class="small muted">${n} z 5 dokumentů</span></div>
     <div class="tblwrap"><table>
-      <tr><th>Č.</th><th>Dokument</th><th>Původ</th><th>Stav</th></tr>
-      ${docs.map((d,i)=>`<tr><td class="mono">${d[0]}</td><td>${d[1]}</td><td class="small muted">${d[2]}</td><td>${i<n?`<span class="pill ok">ve spisu</span>`:`<span class="pill idle">vznikne</span>`}</td></tr>`).join("")}
+      <tr><th>Č.</th><th>Dokument</th><th>Původ</th><th>Stav</th><th></th></tr>
+      ${docs.map((d,i)=>`<tr><td class="mono">${d[0]}</td><td>${d[1]}</td><td class="small muted">${d[2]}</td><td>${i<n?`<span class="pill ok">ve spisu</span>`:`<span class="pill idle">vznikne</span>`}</td><td class="r">${i<n||i===3?`<button class="btn" data-act="prev" data-doc="${d[0]}">${i<n?"Náhled":"Náhled návrhu"}</button>`:""}</td></tr>`).join("")}
     </table></div>
     <p class="small muted" style="margin-top:10px">Skutečný spis měl 7 dokumentů. Odpadla výzva k zaplacení poplatku a doplnění žádosti, sdělení o právní moci a oznámení o ověření dokumentace se spojily do jednoho. Každý úkon se zapisuje jako událost, ze které se spis i transakční protokol generují a předávají do spisové služby.</p>
   </div>`;
@@ -770,7 +816,7 @@ function render(){
   if ($("#upbox") && window.Povolovna && window.JSZip && window.pdfjsLib) Povolovna.mountUpload();
 }
 function go(view){ S.view = view; try{ history.replaceState(null,"","#"+view); }catch(e){} render(); window.scrollTo(0,0); }
-const escH = v => String(v ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+var escH = v => String(v ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 if (window.Povolovna){
   Povolovna.onStart = () => { S.real = true; S.step = 2; render(); window.scrollTo(0,0); };
   Povolovna.onDone = () => { const r = Povolovna.result; if (r){ C.nazev = escH(r.zadost?.nazev || r.A?.nazev) || C.nazev; const n = $("#realnext"); if (n) n.hidden = false; } };
@@ -800,6 +846,12 @@ const ACT = {
   login(){ S.logged = true; toast("Přihlášeno přes Identitu občana (simulace)."); render(); },
   demo(){ startScan(false); },
   otherPkg(){ if (window.Povolovna) Povolovna.reset(); S.real = false; S.step = 1; S.scanAt = -1; render(); },
+  prev(t){ dlgDoc = t.dataset.doc; const [title, html] = docPreview(dlgDoc); freeUrl(); showDlg(title, html, false); },
+  prevFile(t){ const f = realR()?.files[+t.dataset.i]; if (!f) return; freeUrl();
+    if (f.pdf){ dlgUrl = URL.createObjectURL(new Blob([f.bytes], { type: "application/pdf" })); showDlg(f.nazev, `<iframe src="${dlgUrl}" title="Náhled dokumentu"></iframe>`, true); }
+    else showDlg(f.nazev, `<pre>${escH(new TextDecoder("utf-8").decode(f.bytes).slice(0, 40000))}</pre>`, true); },
+  dlgBack(){ freeUrl(); const [title, html] = docPreview(dlgDoc); showDlg(title, html, false); },
+  closeDlg(){ freeUrl(); $("#dlg").close(); },
   toReview(){ S.step = 2; render(); window.scrollTo(0,0); },
   askMO(){ toast("Žádost o souhlas odeslána statutárnímu městu…"); later(()=>{ S.moFixed = true; render(); toast("Vlastník souhlas udělil."); }, 1400); },
   askPdf(){ toast("Odkaz k opravě odeslán hlavnímu projektantovi…"); later(()=>{ S.pdfFixed = true; render(); toast("Projektant nahrál opravené soubory."); }, 1400); },
@@ -823,7 +875,7 @@ document.addEventListener("click", e => {
   if (t.dataset.view) return go(t.dataset.view);
   if (t.dataset.law){ S.law = t.dataset.law; if (S.phase!=="draft"){ S.trackAt = Math.min(Math.max(S.trackAt,5), trackLimit()); if (S.law==="cil") S.trackAt = 9; } return render(); }
   if (t.dataset.tab){ S.tab = t.dataset.tab; return render(); }
-  if (t.dataset.act && ACT[t.dataset.act]) ACT[t.dataset.act]();
+  if (t.dataset.act && ACT[t.dataset.act]) ACT[t.dataset.act](t);
 });
 document.addEventListener("change", e => { if (e.target.name === "pay") S.pay = e.target.value; });
 function fromHash(){ const h = location.hash.slice(1); if (["stavebnik","urad","koncept"].includes(h)) S.view = h; render(); }
