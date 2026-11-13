@@ -232,11 +232,11 @@ dialog#dlg::backdrop{background:rgba(6,11,27,.55)}
     <div class="spacer"></div>
     <span class="small muted">Právní režim</span>
     <div class="seg law" role="group" aria-label="Právní režim">
-      <button data-law="dnes" aria-pressed="true" title="Právní stav po vzniku soustavy ÚRÚ 1. 1. 2028">Zákon od 2028</button>
+      <button data-law="dnes" aria-pressed="true" title="Právní stav po vzniku ÚRÚ ČR 1. 1. 2027">Zákon od 2027</button>
       <button data-law="cil" aria-pressed="false" title="Proces po navržených změnách legislativy">Cílový stav</button>
     </div>
     <div class="auth" id="auth" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"></div>
-    <span class="demo-note">Prototyp · simulace na anonymizovaných datech skutečného spisu</span>
+    <span class="demo-note">Ukázka pro rok 2027 · simulace na anonymizovaných datech · není to maketa DSŘ 2.0</span>
   </div>
 </header>
 <main class="wrap" id="app"></main>
@@ -292,7 +292,7 @@ const C = {
 const kc = n => n.toLocaleString("cs-CZ").replace(/ /g, " ") + " Kč";
 
 /* ===== Stav ===== */
-const S = { view: "stavebnik", law: "dnes", step: 0, logged: false, account: false, moFixed: false, pdfFixed: false, real: false, office: "uru", pay: "karta",
+const S = { view: "stavebnik", law: "dnes", step: 0, logged: false, account: false, moFixed: false, pdfFixed: false, real: false, pay: "karta",
             phase: "draft", /* draft → submitted → approved → final */ trackAt: 0, tab: "prehled", scanAt: -1 };
 let timers = [];
 const later = (fn, ms) => timers.push(setTimeout(fn, ms));
@@ -312,7 +312,7 @@ function vCatalog(){
   <section class="hero">
     <div>
       <h1>Povolení stavby objednáte jako zboží v e-shopu</h1>
-      <p>Nahrajete dokumentaci, systém z ní sám sestaví žádost. Vy jen zkontrolujete, zaplatíte a odešlete. Formulář nevyplňujete a úřad si nevybíráte: příslušné pracoviště soustavy ÚRÚ určí systém.</p>
+      <p>Nahrajete dokumentaci, systém z ní sám sestaví žádost. Vy jen zkontrolujete, zaplatíte a odešlete. Formulář nevyplňujete. Ukázka je pro vyhrazené stavby, které od 1. 1. 2027 povoluje Úřad rozvoje území ČR.</p>
     </div>
     <div class="how"><span><b>1</b>Vyberu</span><span><b>2</b>Nahraju dokumentaci</span><span><b>3</b>Zkontroluju</span><span><b>4</b>Zaplatím a odešlu</span></div>
   </section>
@@ -361,11 +361,11 @@ function checks(){
   return [
     ["ok","Obec má územní plán","územní plán města, účinný od 31. 1. 2025"],
     ["ok","Nejde o záměr EIA","podle druhu a rozsahu stavby"],
-    ["ok","Veřejné zájmy posoudí úřad sám","stanoviska integrovaných orgánů se od 1. 1. 2028 nedokládají"],
+    ["ok","Veřejné zájmy posoudí úřad sám","u vyhrazených staveb se stanoviska integrovaných orgánů nedokládají"],
     ["ok","Dokumentace je úplná","části A–D, 25 souborů"],
     [S.pdfFixed?"ok":"warn","Formát PDF/A-3", S.pdfFixed?"25 z 25 souborů dokumentace, doklady převedl systém":"0 z 25 souborů dokumentace, zatím jen upozornění"],
     ["ok","Autorizační razítko a časové razítko","25 z 25 souborů nese el. podpis s časovým razítkem"],
-    ["ok","Stanoviska orgánů mimo soustavu ÚRÚ","Ministerstvo obrany: souhlasné"],
+    ["ok","Stanoviska orgánů mimo ÚRÚ ČR","Ministerstvo obrany: souhlasné"],
     ["ok","Zastoupení je doložené","plná moc stavebníka pro projekční kancelář"],
     [S.moFixed?"ok":"bad","Souhlas vlastníka pozemků", S.moFixed?"digitální souhlas statutárního města, vázaný na výkres C.3":"vyjádření majetkového odboru ze 4. 8. 2025 je podmíněné"],
     ["ok","Souhlasy ostatních účastníků","9 z 9 na situačním výkresu"],
@@ -418,14 +418,9 @@ function vReview(){
       </section>
 
       <section class="card">
-        <div class="sec-h"><h3>Kam žádost půjde</h3><span class="pill info">určil systém</span></div>
-        <div class="tblwrap"><table>
-          <tr><th>Úroveň soustavy ÚRÚ</th><th>Co rozhoduje</th><th></th></tr>
-          <tr><td><b>Úřad rozvoje území ČR</b></td><td class="small">vyhrazené stavby: dálnice, dráhy, letecké stavby, velké energetické zdroje, bytové stavby od 10 000 m²</td><td><span class="pill ok">vaše žádost</span></td></tr>
-          <tr><td>Úřad rozvoje území kraje (14)</td><td class="small">záměry EIA, silnice I. třídy, obnovitelné zdroje mimo vyhrazené stavby a další záměry podle zákona</td><td></td></tr>
-          <tr><td>Územní pracoviště (205, v obcích s rozšířenou působností)</td><td class="small">všechno ostatní, tedy naprostá většina staveb</td><td></td></tr>
-        </table></div>
-        <p class="small muted" style="margin-top:10px">Zázemí pro řidiče je součást trolejbusové dráhy, tedy stavba dráhy. Úřad ani pracoviště nevybíráte, žádost se podává na jednom místě pro celou soustavu.</p>
+        <div class="sec-h"><h3>Kdo žádost vyřídí</h3><span class="pill info">určil systém</span></div>
+        <p class="small">Zázemí pro řidiče je součást trolejbusové dráhy, tedy stavba dráhy. Stavby drah patří mezi vyhrazené stavby, které od 1. 1. 2027 povoluje <b>Úřad rozvoje území ČR</b>.</p>
+        <p class="small muted" style="margin-top:8px">Ostatní stavby do 31. 12. 2027 povolují obecní a krajské stavební úřady. Pro ně tato ukázka určená není.</p>
       </section>
 
       <section class="card">
@@ -466,7 +461,7 @@ function vReview(){
 
       <section class="card">
         <div class="sec-h"><h3>Doklady <span class="muted small">42 souborů</span></h3><span class="pill warn">6 starších vyjádření</span></div>
-        <p class="small">Vyjádření správců sítí, vlastníků a orgánů mimo soustavu ÚRÚ. Stanoviska orgánů, jejichž působnost od 1. 1. 2028 vykonává stavební úřad sám, se už nedokládají. Podmínky, které z nich plynou pro stavbu, systém převezme do rozhodnutí odkazem.</p>
+        <p class="small">Vyjádření správců sítí, vlastníků a orgánů mimo ÚRÚ ČR. Stanoviska orgánů, jejichž působnost u vyhrazených staveb vykonává ÚRÚ ČR sám, se už nedokládají. Podmínky, které z nich plynou pro stavbu, systém převezme do rozhodnutí odkazem.</p>
         <div class="issue soft small" style="margin-top:12px">Šest vyjádření správců sítí je z léta 2024. Odeslání to nebrání, před zahájením stavby je ale budete muset obnovit.</div>
       </section>
     </div>
@@ -565,7 +560,7 @@ function vTrack(){
       <p class="small">Stejná žádost, podaná 31. 3. 2026, nabyla právní moci 17. 7. 2026.</p>
       <div class="kpis" style="grid-template-columns:1fr 1fr">
         <div class="kpi"><b class="num">108 dní</b><span class="small muted">skutečný spis</span></div>
-        <div class="kpi"><b class="num">${S.law==="cil"?"7 minut":"1–2 dny"}</b><span class="small muted">${S.law==="cil"?"cílový stav, odhad":"zákon od 2028, odhad"}</span></div>
+        <div class="kpi"><b class="num">${S.law==="cil"?"7 minut":"1–2 dny"}</b><span class="small muted">${S.law==="cil"?"cílový stav, odhad":"zákon od 2027, odhad"}</span></div>
       </div>
       <button class="btn" data-act="goKoncept">Kde se těch 108 dní ztratilo</button>
       <button class="btn link small" data-act="restart">Začít znovu od začátku</button>
@@ -583,49 +578,21 @@ function officeStatus(){
   if (S.law === "cil") return ["ok","Vydáno automaticky"];
   return S.phase === "final" ? ["ok","Pravomocné"] : S.phase === "approved" ? ["info","Doručuje se"] : ["warn","Čeká na váš podpis"];
 }
-const OFF = {
-  uru: ["Úřad rozvoje území ČR", "Vyhrazené stavby v jediném stupni. Nadřízený orgán úřadů rozvoje území krajů."],
-  kraj: ["Úřad rozvoje území kraje", "Záměry EIA, silnice I. třídy a další vyjmenované záměry. Odvolací orgán pro svá územní pracoviště."],
-  up: ["Územní pracoviště", "Všechny ostatní stavby ve správním obvodu obce s rozšířenou působností. Odvolává se ke kraji."]
-};
 function uradHead(sub){
-  return `<div class="stack" style="gap:10px">
-    <div class="row" style="justify-content:space-between"><h1 style="font-size:28px">${OFF[S.office][0]}</h1>
-      <div class="seg" role="group" aria-label="Úroveň soustavy">${Object.keys(OFF).map(k=>`<button data-office="${k}" aria-pressed="${S.office===k}">${{uru:"ÚRÚ ČR",kraj:"Kraj",up:"Územní pracoviště"}[k]}</button>`).join("")}</div></div>
-    <p class="muted">${OFF[S.office][1]} ${sub||""}</p>
-    <p class="small muted">Soustava ÚRÚ: 1 ústřední úřad · 14 krajů · 205 územních pracovišť. Všechny úrovně pracují ve stejném systému nad stejnými pravidly.</p></div>`;
-}
-function vUradOther(){
-  const up = S.office === "up";
-  const q = up ? [["Rodinný dům s garáží","zrychlené řízení · všechny kontroly prošly","warn","Čeká na váš podpis"],["Přístavba dílny","chybí souhlas 1 souseda, stavebník upozorněn","info","Čeká na stavebníka"],["Vodovodní přípojka","zrychlené řízení · vydáno ve lhůtě","ok","Vydáno"]]
-               : [["Obchvat, silnice I. třídy","standardní řízení · běží lhůta pro námitky","info","Běží lhůta"],["Fotovoltaická elektrárna","záměr EIA · čeká na posouzení specialisty","bad","Vyžaduje uvážení"],["Odvolání proti povolení skladu","odvolací řízení z územního pracoviště","warn","Čeká na váš podpis"]];
-  return `<div class="stack" style="gap:20px">${uradHead()}
-    <div class="office">
-      <div class="q">${q.map(r=>`<button class="fake" tabindex="-1"><span class="row" style="justify-content:space-between"><span class="mono small">ukázka</span><span class="pill ${r[2]}">${r[3]}</span></span><b>${r[0]}</b><span class="small muted">${r[1]}</span></button>`).join("")}
-        <p class="small muted">Všechna řízení v této frontě jsou smyšlená, jen ukazují, co na této úrovni soustavy poběží.</p></div>
-      <div class="stack">
-        <div class="card stack"><h3>Stejná pracovní plocha na všech úrovních</h3>
-          <p class="small">${up ? "Územní pracoviště vyřizuje naprostou většinu staveb. Tady automatizace ušetří nejvíc: jednoduchá řízení projdou bez zásahu, úředník řeší výjimky a kontroluje vzorek." : "Kraj rozhoduje složitější záměry a zároveň odvolání ze svých územních pracovišť. Odvolací spis dostane kompletní, včetně protokolu o kontrolách prvního stupně."}</p>
-          <p class="small">Zpracované ukázkové řízení (zázemí pro řidiče MHD) je stavba dráhy, proto ho najdete u <button class="btn link" data-office="uru">ÚRÚ ČR</button>.</p></div>
-        <div class="card"><h3 style="margin-bottom:10px">Kdo je komu nadřízený</h3>
-          <div class="tblwrap"><table><tr><th>Rozhoduje</th><th>Opravný prostředek</th><th>Kam</th></tr>
-            <tr><td>Územní pracoviště</td><td>odvolání</td><td>úřad rozvoje území kraje</td></tr>
-            <tr><td>Úřad rozvoje území kraje</td><td>odvolání</td><td>Úřad rozvoje území ČR</td></tr>
-            <tr><td>Úřad rozvoje území ČR, vyhrazené stavby</td><td>rozklad není přípustný</td><td>správní soud</td></tr></table></div></div>
-      </div></div></div>`;
+  return `<div class="stack" style="gap:10px"><h1 style="font-size:28px">Úřad rozvoje území ČR</h1>
+    <p class="muted">Vyhrazené stavby v jediném stupni. ${sub||""}</p></div>`;
 }
 function oZajmy(){
   const z = [["Život a zdraví","bez dotčení","auto"],["Životní prostředí","zásah do plochy zeleně, podmínka uvedení do původního stavu","spec"],["Památková péče","mimo chráněná území","auto"],["Veřejná infrastruktura","křížení sítí, podmínky správců převzaty","spec"],["Zemědělství a lesy","bez záboru","auto"],["Nerostné bohatství","mimo chráněná ložisková území","auto"],["Energetika","bez dotčení","auto"],["Požární ochrana","nejnižší kategorie, posuzuje úřad sám","auto"],["Prevence závažných havárií","netýká se","auto"],["Samospráva obce","obec je účastníkem, souhlasila","auto"]];
   return `<div class="card">
     <div class="sec-h"><h3>Veřejné zájmy, které úřad posuzuje sám</h3><span class="pill ok">10 z 10 posouzeno</span></div>
-    <p class="small muted" style="margin-bottom:10px">Od 1. 1. 2028 stavební úřad vykonává působnost dotčených orgánů a jeho rozhodnutí nahrazuje jejich stanoviska. Systém vyhodnotí z územních dat, co vyhodnotit jde, a specialistovi úřadu předá jen to, co vyžaduje úsudek. Výsledky v této tabulce jsou ukázka.</p>
+    <p class="small muted" style="margin-bottom:10px">U vyhrazených staveb vykonává ÚRÚ ČR působnost dotčených orgánů sám a jeho rozhodnutí nahrazuje jejich stanoviska. Systém vyhodnotí z územních dat, co vyhodnotit jde, a specialistovi úřadu předá jen to, co vyžaduje úsudek. Výsledky v této tabulce jsou ukázka.</p>
     <div class="tblwrap"><table><tr><th>Oblast</th><th>Zjištění</th><th>Kdo posoudil</th></tr>
       ${z.map(r=>`<tr><td><b>${r[0]}</b></td><td class="small">${r[1]}</td><td>${r[2]==="auto"?`<span class="pill ok">systém</span>`:`<span class="pill info">specialista úřadu</span>`}</td></tr>`).join("")}
     </table></div>
     <p class="small muted" style="margin-top:10px">Mimo integraci zůstávají například závazná stanoviska hasičů u nejsložitějších staveb a památkové péče u jednotlivých kulturních památek. Ty si úřad vyžádá sám, orgán má 30 dnů, potom platí souhlas bez podmínek.</p></div>`;
 }
 function vUrad(){
-  if (S.office !== "uru") return vUradOther();
   const st = officeStatus(), cil = S.law === "cil";
   const tabs = [["prehled","Přehled"],["zajmy","Veřejné zájmy"],["rozhodnuti","Návrh rozhodnutí"],["doruceni","Účastníci a doručení"],["spis","Spis"]];
   return `
@@ -694,7 +661,7 @@ function oRozhodnuti(){
   <div class="doc">
     <p class="small muted">Úřad rozvoje území České republiky<br>Sp. zn. a č. j. přidělila spisová služba · Záměr <span class="gen">Z/2026/00001</span></p>
     <h4>ROZHODNUTÍ</h4><p style="text-align:center"><b>POVOLENÍ STAVBY</b></p>
-    <p>Stavební úřad v řízení o povolení záměru ve zrychleném řízení přezkoumal žádost, kterou podal <span class="gen">Dopravní podnik, a.s., IČO 00000001, zastoupený Projekční kancelář, s.r.o., IČO 00000002</span>, a podle stavebního zákona ve znění účinném od 1. 1. 2028 <b>povoluje</b> stavbu dráhy</p>
+    <p>Stavební úřad v řízení o povolení záměru ve zrychleném řízení přezkoumal žádost, kterou podal <span class="gen">Dopravní podnik, a.s., IČO 00000001, zastoupený Projekční kancelář, s.r.o., IČO 00000002</span>, a podle stavebního zákona ve znění účinném od 1. 1. 2027 <b>povoluje</b> stavbu dráhy</p>
     <p style="text-align:center"><b><span class="gen">${C.nazev}</span></b></p>
     <p>v rozsahu: <span class="gen">SO 01 Zastávka typ A (zázemí pro řidiče), IO 01 Přípojka vodovodu, IO 02 Přípojka splaškové kanalizace</span>, na pozemcích parc. č. <span class="gen">2882/1, 2883/1, 2883/2, 2952/1, 3008, 3009</span>.</p>
     <p><b>Podmínky</b></p>
@@ -715,7 +682,7 @@ function oDoruceni(){
   return `<div class="card">
     <div class="sec-h"><h3>Doručení rozhodnutí</h3><span class="pill ${fin?"ok":sent?"info":"idle"}">${fin?"Pravomocné":sent?"Doručuje se":"Po podpisu"}</span></div>
     <p class="small muted" style="margin-bottom:10px">${cil?"Doručuje se zpřístupněním v účtu řízení. Účastník dostane upozornění do datové schránky, e-mailem i SMS. Souhlas se záměrem zahrnoval vzdání se odvolání, právní moc tedy nastává doručením."
-      :"Každý účastník má písemnost v účtu řízení a souběžně v datové schránce. Proti rozhodnutí ÚRÚ ČR o vyhrazené stavbě není rozklad přípustný, právní moc nastává doručením poslednímu účastníkovi. U rozhodnutí krajů a územních pracovišť odvolání zůstává; tam se ho účastník může vzdát jedním potvrzením v účtu."}</p>
+      :"Každý účastník má písemnost v účtu řízení a souběžně v datové schránce. Proti rozhodnutí ÚRÚ ČR o vyhrazené stavbě není rozklad přípustný, právní moc nastává doručením poslednímu účastníkovi."}</p>
     <div class="tblwrap"><table>
       <tr><th>Účastník</th><th>Doručeno</th><th>Opravný prostředek</th></tr>
       ${C.ucastnici.map((u,i)=>`<tr><td>${u[0]}</td><td>${fin||(sent&&i<8)?`<span class="pill ok">doručeno</span>`:sent?`<span class="pill info">čeká na převzetí</span>`:`<span class="pill idle">čeká</span>`}</td><td>${cil?`<span class="pill ok">vzdal se souhlasem</span>`:`<span class="pill idle">rozklad nepřípustný</span>`}</td></tr>`).join("")}
@@ -778,26 +745,24 @@ function oSpis(){
 function vKoncept(){
   const seg = [[15,"Podání → potvrzení přijetí a založení spisu","#3771b8"],[28,"Čekání na výzvu k zaplacení poplatku","#b50817"],[27,"Čekání na doplnění chybějícího souhlasu vlastníka","#af7a00"],[20,"Posouzení a sepsání rozhodnutí","#0e3578"],[18,"Doručení, úřední deska, odvolací lhůta","#5d5d5d"]];
   const law = [
-    ["Podací místo a příslušnost","Stavebník musel vědět, že stavbu dráhy povoluje zvláštní úřad.","Jedno podací místo pro celou soustavu. Úroveň i pracoviště určí systém z druhu stavby a místa.","a","Nic. Soustava ÚRÚ má od 2028 jednu hierarchii, pravidla příslušnosti jsou v zákoně."],
     ["Žádost","Formulář se vyplňuje ručně vedle dokumentace a liší se od ní: chybí parcela 2883/1, jiná výměra parcely 3008.","Žádost vzniká z dokumentace. Stavebník ji jen potvrdí.","a","Nic. Strukturovaná žádost se vygeneruje do platného formátu."],
     ["Formát a autorizace dokumentace","Žádný ze 68 PDF v balíčku se nehlásí jako PDF/A. Podání přesto prošlo.","Kontrola PDF/A-3, autorizačního razítka a časového razítka hned při nahrání. Zpočátku jen upozorňuje.","a","Nic. Požadavky už platí, jen je nikdo strojově nevynucuje."],
     ["Zastoupení","PDF plné moci, pověření a výpis z obchodního rejstříku v příloze.","Oprávnění jednat se ověří v registrech, plná moc je záznam v registru zastoupení.","b","Uznat zápis v registru jako průkaz zastoupení."],
-    ["Poplatek","Výzva 43 dní po podání, lhůta 15 dní, hrozba zastavení řízení.","Platí se při odeslání. Překročí-li úřad lhůtu, poplatek se vrací automaticky.","a","Nic. Novela už spojuje překročení lhůty s osvobozením od poplatku; systém to jen provede sám."],
+    ["Poplatek","Výzva 43 dní po podání, lhůta 15 dní, hrozba zastavení řízení.","Platí se při odeslání. Překročí-li úřad lhůtu, poplatek se vrací automaticky.","a","Nic. Novela spojuje překročení lhůty s osvobozením od poplatku; systém to jen provede sám."],
     ["Souhlas vlastníka a účastníků","Podpis na situačním výkresu, sken. Chyběl, doplněn po 70 dnech.","Digitální souhlas vázaný na otisk výkresu, udělený přes identitu občana nebo datovou schránku.","b","Výslovně připustit elektronický souhlas vázaný na otisk dokumentace místo podpisu na výkresu."],
-    ["Stanoviska dotčených orgánů","Mezi 42 doklady byla závazná stanoviska a sdělení řady orgánů, která musel stavebník obstarat sám.","Veřejné zájmy posuzuje úřad sám. Systém je vyhodnotí z územních dat a specialistovi předá jen to, co vyžaduje úsudek.","a","Nic. Integraci dotčených orgánů do stavebního úřadu přináší novela, koordinované stanovisko a JES od 2028 končí."],
+    ["Stanoviska dotčených orgánů","Mezi 42 doklady byla závazná stanoviska a sdělení řady orgánů, která musel stavebník obstarat sám.","Veřejné zájmy posuzuje úřad sám. Systém je vyhodnotí z územních dat a specialistovi předá jen to, co vyžaduje úsudek.","a","Nic. U vyhrazených staveb začíná integrace dotčených orgánů do ÚRÚ ČR už od roku 2027."],
     ["Vyjádření správců sítí","Desítky PDF, většinou skeny, každé v jiné podobě. Úředník opisuje podmínky do rozhodnutí.","Vyjádření jako data: kdo, k čemu, platnost, podmínky. Vydává se do registru, žádost na ně odkazuje.","c","Povinnost správců sítí vydávat vyjádření strojově čitelně do společného registru."],
     ["Okruh účastníků","Úředník nahlíží do katastru a posuzuje ručně.","Systém ho odvodí z katastru, RÚIAN a digitální technické mapy a zdůvodní.","a","Nic. Úředník okruh potvrzuje."],
     ["Rozhodnutí","Přes 12 stran, z toho zhruba 5 stran opsaných podmínek.","Rozhodnutí jako data s čitelným zobrazením. Podmínky odkazem na vyjádření, odůvodnění protokolem kontrol.","b","Připustit podmínky a odůvodnění odkazem na přílohy a protokol."],
     ["Kdo rozhoduje","Referent připraví, ředitelka podepíše.","Projdou-li všechny kontroly a není co uvažovat, rozhodnutí vydá systém. Úředník kontroluje vzorek a řeší výjimky.","c","Zmocnění k automatizovanému vydání rozhodnutí ve zrychleném řízení, s právem na přezkum člověkem."],
-    ["Rozdělení práce v soustavě","Spis vyřizovalo jedno územní pracoviště úřadu podle místa.","Celostátní fronta: jednoduchá řízení vyřídí kterékoli pracoviště soustavy, které má právě kapacitu.","c","Uvolnit místní příslušnost uvnitř soustavy ÚRÚ pro určené typy řízení."],
     ["Doručování","17 datových zpráv a vyvěšení na úřední desce na 15 dní.","Doručení zpřístupněním v účtu řízení, upozornění do datové schránky, e-mailem a SMS. Fikce následující pracovní den.","c","Nový způsob doručení ve stavebním zákoně nebo správním řádu."],
-    ["Právní moc","18 dní po vydání, přestože všichni účastníci předem souhlasili.","U vyhrazených staveb doručením, rozklad proti rozhodnutí ÚRÚ ČR není. U krajů a pracovišť vzdání se odvolání jedním potvrzením v účtu.","a","Nic. Jednostupňové řízení u ÚRÚ ČR přináší novela, vzdání se odvolání umožňuje správní řád."],
-    ["Právní moc II","","Souhlas se záměrem ve zrychleném řízení znamená i vzdání se odvolání, na všech úrovních soustavy.","c","Doplnit účinky souhlasu ve zrychleném řízení."],
+    ["Právní moc","18 dní po vydání, přestože všichni účastníci předem souhlasili.","U vyhrazených staveb doručením posledním účastníkovi, rozklad proti rozhodnutí ÚRÚ ČR není.","a","Nic. Jednostupňové řízení u ÚRÚ ČR přináší novela."],
+    ["Právní moc II","","Souhlas se záměrem ve zrychleném řízení znamená i vzdání se odvolání, u všech stavebních úřadů.","c","Doplnit účinky souhlasu ve zrychleném řízení."],
     ["Doložka, ověřená dokumentace, štítek","Další 2 písemnosti a 5 datových zpráv 4 dny po právní moci.","Vzniknou samy v okamžiku právní moci, opatřené pečetí úřadu. Štítek nese QR kód na rozhodnutí.","a","Nic."],
     ["Nečinnost","Mezi úkony uplynuly týdny.","Povolení uplynutím lhůty i u dalších typů řízení, pokud kontroly prošly.","b","Novela zavádí povolení uplynutím lhůty jen u jednoduchých staveb a sítí ve zrychleném řízení. Rozšířit okruh."]
   ];
 
-  const lv = {a:["A","jde podle zákona od 2028"],b:["B","drobná novela"],c:["C","odvážná změna"]};
+  const lv = {a:["A","jde podle zákona od 2027"],b:["B","drobná novela"],c:["C","odvážná změna"]};
   return `
   <div class="stack" style="gap:28px">
     <div class="prose"><h1>Kde se ztratilo 108 dní a jak je vrátit</h1>
@@ -818,17 +783,16 @@ function vKoncept(){
     </section>
 
     <section class="card stack">
-      <h2>Výchozí stav: soustava ÚRÚ od 1. 1. 2028</h2>
-      <p class="prose">Aplikace počítá s jednotnou státní stavební správou po novele stavebního zákona. Spis z roku 2026 slouží jen jako měřítko toho, co se má zlepšit.</p>
+      <h2>Co Povolovna je a co není</h2>
+      <p class="prose">Povolovna ukazuje, jak dnešní technologie omezí ruční vstupy v procesech, jak poběží v roce 2027: nad dokumentací a doklady v podobě, v jaké dnes chodí. Není to maketa DSŘ 2.0 ani návrh jeho architektury. Návrhy úrovně B a C v tabulce níže ukazují směr, ne rozsah této ukázky.</p>
       <div class="tblwrap"><table>
-        <tr><th>Oblast</th><th>Jak je to od 2028</th><th>Co s tím dělá aplikace</th></tr>
-        <tr><td><b>Soustava</b></td><td class="small">Úřad rozvoje území ČR, 14 úřadů rozvoje území krajů a 205 územních pracovišť v obcích s rozšířenou působností. Krajské a obecní stavební úřady zanikají 31. 12. 2027.</td><td class="small">Jedno podací místo, jeden účet řízení, jedna sada pravidel pro všechny úrovně.</td></tr>
-        <tr><td><b>Příslušnost</b></td><td class="small">ÚRÚ ČR rozhoduje vyhrazené stavby (mimo jiné stavby drah), kraj záměry EIA, silnice I. třídy a další vyjmenované, územní pracoviště všechno ostatní.</td><td class="small">Úroveň určí z druhu stavby, pracoviště z místa. Stavebník nic nevybírá.</td></tr>
-        <tr><td><b>Opravné prostředky</b></td><td class="small">Proti rozhodnutí ÚRÚ ČR o vyhrazené stavbě není rozklad. Kraj je nadřízený svým pracovištím, ÚRÚ ČR krajům.</td><td class="small">U ÚRÚ ČR počítá právní moc od doručení, jinde nabízí vzdání se odvolání.</td></tr>
-        <tr><td><b>Dotčené orgány</b></td><td class="small">Stavební úřad sám chrání vyjmenované veřejné zájmy a jeho rozhodnutí nahrazuje jejich stanoviska. Koordinované stanovisko a JES končí. Zůstávají například stanoviska hasičů u nejsložitějších staveb a památkové péče u jednotlivých památek.</td><td class="small">Stanoviska integrovaných orgánů nevyžaduje. Pohled úřadu má kartu Veřejné zájmy.</td></tr>
-        <tr><td><b>Lhůty</b></td><td class="small">Vyjádření dotčeného orgánu do 30 dnů, jinak platí souhlas bez podmínek. Překročí-li stavební úřad lhůtu, poplatek se nevybírá. U jednoduchých staveb a sítí ve zrychleném řízení povolení uplynutím lhůty.</td><td class="small">Hlídá lhůty a jejich důsledky sám.</td></tr>
+        <tr><th>Oblast</th><th>Stav v roce 2027</th><th>Co s tím dělá Povolovna</th></tr>
+        <tr><td><b>Úřad</b></td><td class="small">Od 1. 1. 2027 existuje Úřad rozvoje území ČR a povoluje vyhrazené stavby, mimo jiné stavby drah. Obecní a krajské stavební úřady fungují do 31. 12. 2027.</td><td class="small">Pracuje s řízeními ÚRÚ ČR. Ostatní stavby neřeší.</td></tr>
+        <tr><td><b>Opravné prostředky</b></td><td class="small">Proti rozhodnutí ÚRÚ ČR o vyhrazené stavbě není rozklad, zůstává soudní ochrana.</td><td class="small">Právní moc počítá od doručení poslednímu účastníkovi.</td></tr>
+        <tr><td><b>Dotčené orgány</b></td><td class="small">U vyhrazených staveb začíná integrace dotčených orgánů do ÚRÚ ČR hned v roce 2027. Koordinované stanovisko a JES končí až 1. 1. 2028.</td><td class="small">Stanoviska integrovaných orgánů nevyžaduje. Pohled úřadu má kartu Veřejné zájmy.</td></tr>
+        <tr><td><b>Podání</b></td><td class="small">Žádost a dokumentace chodí jako balíček z Portálu stavebníka, doklady převážně jako skeny.</td><td class="small">Balíček i přílohy přečte, porovná žádost s dokumentací a najde chybějící nebo nesouhlasné podklady.</td></tr>
       </table></div>
-      <p class="small muted">Zdroj: materiály Ministerstva pro místní rozvoj k novele na <a href="https://novystavebnizakon.gov.cz/legislativa/uplne-zneni-zakona/">novystavebnizakon.gov.cz</a> (úplné znění, <a href="https://novystavebnizakon.gov.cz/legislativa/pravni-otazky-a-odpovedi/">právní otázky a odpovědi</a>, školení stavebních úřadů z října 2026). Čísla paragrafů a přesné hranice příslušnosti před ostrým použitím ověřte v platném znění.</p>
+      <p class="small muted">Zdroj: materiály Ministerstva pro místní rozvoj k novele na <a href="https://novystavebnizakon.gov.cz/legislativa/uplne-zneni-zakona/">novystavebnizakon.gov.cz</a>. Čísla paragrafů a data účinnosti jednotlivých změn před ostrým použitím ověřte v platném znění.</p>
     </section>
 
     <section class="stack">
@@ -844,13 +808,13 @@ function vKoncept(){
 
     <section class="card stack">
       <div class="sec-h"><h2>Co změnit a co k tomu potřebujete</h2>
-        <span class="row small"><span class="lvl a">A jde podle zákona od 2028</span><span class="lvl b">B drobná novela</span><span class="lvl c">C odvážná změna</span></span></div>
+        <span class="row small"><span class="lvl a">A jde podle zákona od 2027</span><span class="lvl b">B drobná novela</span><span class="lvl c">C odvážná změna</span></span></div>
       <div class="tblwrap"><table>
         <tr><th>Krok</th><th>Spis z roku 2026</th><th>Návrh</th><th>Úroveň</th><th>Co by se muselo změnit</th></tr>
         ${law.map(l=>`<tr><td><b>${l[0]}</b></td><td class="small">${l[1]}</td><td class="small">${l[2]}</td><td><span class="lvl ${l[3]}">${lv[l[3]][0]}</span></td><td class="small">${l[4]}</td></tr>`).join("")}
       </table></div>
       <p class="small muted">Úrovně jsou můj odhad nad spisem a obecnou znalostí správního řádu a stavebního zákona. Než z nich vznikne legislativní návrh, potřebují prověřit právníkem, hlavně automatizované rozhodování (i s ohledem na GDPR u fyzických osob) a fikce.</p>
-      <p class="small">Přepínač <b>Právní režim</b> v horní liště ukazuje oba světy: <b>Zákon od 2028</b> využívá jen úroveň A, <b>Cílový stav</b> i B a C.</p>
+      <p class="small">Přepínač <b>Právní režim</b> v horní liště ukazuje oba světy: <b>Zákon od 2027</b> využívá jen úroveň A, <b>Cílový stav</b> i B a C.</p>
     </section>
 
     <section class="stack">
@@ -859,7 +823,7 @@ function vKoncept(){
         <div class="card"><h3>GitHub</h3><ul><li>Repozitář s aplikací, zatím statickou, hostovanou na GitHub Pages</li><li>Pravidla řízení a šablony písemností jako verzované soubory</li><li>GitHub Actions pro nasazení funkcí a migrací</li></ul></div>
         <div class="card"><h3>Supabase databáze</h3><ul><li>Záměry, podání, osoby, pozemky, souhlasy, vyjádření s podmínkami</li><li>Tabulka událostí jako jediný zdroj pravdy o průběhu</li><li>Řádková oprávnění: stavebník, účastník, úředník</li></ul></div>
         <div class="card"><h3>Supabase úložiště a funkce</h3><ul><li>Dokumentace v úložišti, u každého souboru otisk</li><li>Funkce: rozbalení balíčku, kontrola PDF/A a podpisů, čtení skenů, vytěžení údajů jazykovým modelem, kontroly, generování písemností</li><li>Realtime pro sledování řízení, plánovač pro lhůty</li></ul></div>
-        <div class="card"><h3>Napojení, postupně</h3><ul><li>Vstup: balíček Portálu stavebníka (BPP) umí přijmout hned</li><li>Registry: ARES, katastr, RÚIAN, digitální technická mapa</li><li>Úřad: agendový systém a spisová služba soustavy ÚRÚ, datové schránky, platební brána, identita občana</li></ul></div>
+        <div class="card"><h3>Napojení, postupně</h3><ul><li>Vstup: balíček Portálu stavebníka (BPP) umí přijmout hned</li><li>Registry: ARES, katastr, RÚIAN, digitální technická mapa</li><li>Úřad: agendový systém a spisová služba ÚRÚ ČR, datové schránky, platební brána, identita občana</li></ul></div>
       </div>
       <p class="small muted">Dokud nejsou napojené registry a platební brána, pracuje prototyp s uloženými odpověďmi. Datový model první iterace je v souboru schema.sql.</p>
     </section>
@@ -870,7 +834,7 @@ function vKoncept(){
         <tr><th>Iterace</th><th>Obsah</th><th>Výsledek</th></tr>
         <tr><td class="mono">1</td><td>Skutečné nahrání balíčku do Supabase, vytěžení údajů z A a B, porovnání s formulářem</td><td class="small">Na tomto spisu systém sám najde chybějící parcelu a podmíněný souhlas.</td></tr>
         <tr><td class="mono">2</td><td>Kontroly zrychleného řízení jako pravidla, generátor rozhodnutí, pohled úředníka nad daty</td><td class="small">Rozhodnutí vzniká z dat, ne ve Wordu.</td></tr>
-        <tr><td class="mono">3</td><td>Účet řízení pro účastníky: doručení, souhlas, vzdání se odvolání</td><td class="small">U krajů a územních pracovišť právní moc v den vydání bez změny zákona.</td></tr>
+        <tr><td class="mono">3</td><td>Účet řízení pro účastníky: doručení, souhlas, vzdání se odvolání</td><td class="small">Účastníci mají vše k řízení na jednom místě.</td></tr>
         <tr><td class="mono">4</td><td>Standardní řízení: účastníci bez souhlasu, námitky, lhůty, vyjádření dotčených orgánů</td><td class="small">Stejné jádro, další sada pravidel.</td></tr>
         <tr><td class="mono">5</td><td>Záměry EIA, kolaudace, další typy řízení</td><td class="small">Celý životní cyklus stavby.</td></tr>
       </table></div>
@@ -931,7 +895,7 @@ const ACT = {
   toPay(){ S.step = 3; render(); window.scrollTo(0,0); },
   back(){ S.step = 2; render(); },
   submit(){ S.phase = "submitted"; S.trackAt = 0; render(); window.scrollTo(0,0); runTrack(); },
-  goUrad(){ S.tab = "prehled"; S.office = "uru"; go("urad"); },
+  goUrad(){ S.tab = "prehled"; go("urad"); },
   goKoncept(){ go("koncept"); },
   restart(){ clearTimers(); Object.assign(S,{step:0,moFixed:false,pdfFixed:false,real:false,phase:"draft",trackAt:0,scanAt:-1,account:false,tab:"prehled"}); render(); },
   approve(){ if (S.phase==="draft") S.trackAt = 5; S.phase = "approved"; S.tab = "doruceni"; render(); toast("Podepsáno. Rozhodnutí se doručuje 11 účastníkům."); },
@@ -941,8 +905,7 @@ const ACT = {
   review(){ toast("V prototypu není přezkum zapojený."); }
 };
 document.addEventListener("click", e => {
-  const t = e.target.closest("[data-view],[data-law],[data-act],[data-tab],[data-office]"); if (!t || t.disabled) return;
-  if (t.dataset.office){ S.office = t.dataset.office; return render(); }
+  const t = e.target.closest("[data-view],[data-law],[data-act],[data-tab]"); if (!t || t.disabled) return;
   if (t.dataset.view) return go(t.dataset.view);
   if (t.dataset.law){ S.law = t.dataset.law; if (S.phase!=="draft"){ S.trackAt = Math.min(Math.max(S.trackAt,5), trackLimit()); if (S.law==="cil") S.trackAt = 9; } return render(); }
   if (t.dataset.tab){ S.tab = t.dataset.tab; return render(); }
