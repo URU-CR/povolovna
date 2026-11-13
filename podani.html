@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Povolovna – nahrání dokumentace</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* Layout: horní lišta s přepínačem pohledů; stavebník = úzký sloupec + košík vpravo; úřad = fronta vlevo, detail vpravo */
+:root{
+  --bg:#f3f5f4; --surface:#ffffff; --sunk:#e9edeb; --ink:#13211f; --muted:#5a6966; --line:#d5dcd9;
+  --brand:#0e5a52; --brand-ink:#ffffff; --accent:#d9541a; --accent-ink:#ffffff;
+  --ok:#1b7a45; --ok-bg:#e2f3e9; --warn:#9a6200; --warn-bg:#fbefd2; --bad:#b3261e; --bad-bg:#fbe4e1; --info:#1c5a9c; --info-bg:#e1edf9;
+  --display:"Bricolage Grotesque","IBM Plex Sans",system-ui,sans-serif;
+  --body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Consolas,monospace;
+  --r:10px;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    color-scheme:dark;
+    --bg:#0f1716; --surface:#172220; --sunk:#1e2b29; --ink:#e7efed; --muted:#9bacA8; --line:#2c3b38;
+    --brand:#5fc9b9; --brand-ink:#06211d; --accent:#ff8a4f; --accent-ink:#2a1002;
+    --ok:#6fd79b; --ok-bg:#143524; --warn:#f0c064; --warn-bg:#3a2c0c; --bad:#ff9a90; --bad-bg:#40191a; --info:#8dc0f5; --info-bg:#14304d;
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#0f1716; --surface:#172220; --sunk:#1e2b29; --ink:#e7efed; --muted:#9bacA8; --line:#2c3b38;
+  --brand:#5fc9b9; --brand-ink:#06211d; --accent:#ff8a4f; --accent-ink:#2a1002;
+  --ok:#6fd79b; --ok-bg:#143524; --warn:#f0c064; --warn-bg:#3a2c0c; --bad:#ff9a90; --bad-bg:#40191a; --info:#8dc0f5; --info-bg:#14304d;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font:400 15px/1.5 var(--body);-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:var(--display);text-wrap:balance;margin:0;line-height:1.15}
+h1{font-size:clamp(26px,4vw,38px);font-weight:700;letter-spacing:-.01em}
+h2{font-size:22px;font-weight:700}
+h3{font-size:16px;font-weight:700}
+p{margin:0}
+a{color:var(--brand)}
+button{font:inherit;color:inherit;cursor:pointer}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.mono{font-family:var(--mono);font-size:.92em}
+.muted{color:var(--muted)}
+.small{font-size:13px}
+.num{font-variant-numeric:tabular-nums}
+
+/* top bar */
+.top{position:sticky;top:0;z-index:20;background:var(--surface);border-bottom:1px solid var(--line)}
+.top-in{max-width:1180px;margin:0 auto;padding:10px 16px;display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center}
+.logo{font-family:var(--display);font-weight:700;font-size:20px;display:flex;align-items:center;gap:8px}
+.logo i{width:22px;height:22px;border-radius:6px;background:var(--brand);display:inline-block;position:relative}
+.logo i::after{content:"";position:absolute;left:6px;top:5px;width:6px;height:10px;border:solid var(--brand-ink);border-width:0 2.5px 2.5px 0;transform:rotate(40deg)}
+.seg{display:inline-flex;background:var(--sunk);border-radius:999px;padding:3px;gap:2px}
+.seg button{border:0;background:transparent;padding:6px 14px;border-radius:999px;font-weight:500;color:var(--muted)}
+.seg button[aria-pressed="true"]{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.15)}
+.seg.law button[aria-pressed="true"]{background:var(--brand);color:var(--brand-ink)}
+.spacer{flex:1}
+.wrap{max-width:1180px;margin:0 auto;padding:24px 16px 80px}
+.demo-note{font-size:12.5px;color:var(--muted);border:1px dashed var(--line);border-radius:999px;padding:3px 10px}
+
+/* bits */
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:18px}
+.stack{display:flex;flex-direction:column;gap:14px}
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.grid2{display:grid;grid-template-columns:minmax(0,1fr) 330px;gap:20px;align-items:start}
+@media (max-width:900px){.grid2{grid-template-columns:minmax(0,1fr)}}
+.btn{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:9px 16px;font-weight:600}
+.btn:hover{border-color:var(--ink)}
+.btn.pri{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.pri:hover{filter:brightness(1.07)}
+.btn.brand{background:var(--brand);border-color:var(--brand);color:var(--brand-ink)}
+.btn.big{padding:13px 22px;font-size:16px}
+.btn[disabled]{opacity:.45;cursor:not-allowed}
+.btn.link{border:0;background:none;padding:0;color:var(--brand);text-decoration:underline;font-weight:500}
+.pill{display:inline-flex;align-items:center;gap:5px;border-radius:999px;padding:2px 9px;font-size:12.5px;font-weight:600;white-space:nowrap}
+.pill::before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor}
+.pill.ok{background:var(--ok-bg);color:var(--ok)} .pill.warn{background:var(--warn-bg);color:var(--warn)}
+.pill.bad{background:var(--bad-bg);color:var(--bad)} .pill.info{background:var(--info-bg);color:var(--info)}
+.pill.idle{background:var(--sunk);color:var(--muted)}
+.src{font-family:var(--mono);font-size:11.5px;color:var(--muted);background:var(--sunk);border-radius:4px;padding:1px 6px;white-space:nowrap}
+.tblwrap{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:14px}
+th{text-align:left;font-weight:600;color:var(--muted);font-size:12.5px;padding:6px 10px 6px 0;border-bottom:1px solid var(--line);white-space:nowrap}
+td{padding:8px 10px 8px 0;border-bottom:1px solid var(--line);vertical-align:top}
+tr:last-child td{border-bottom:0}
+td.r,th.r{text-align:right}
+
+/* stepper */
+.steps{display:flex;gap:6px;list-style:none;margin:0 0 22px;padding:0;flex-wrap:wrap}
+.steps li{flex:1 1 130px;border-top:4px solid var(--line);padding-top:8px;font-size:13px;color:var(--muted);font-weight:500}
+.steps li b{display:block;font-family:var(--mono);font-size:11.5px;font-weight:500}
+.steps li.done{border-color:var(--brand);color:var(--ink)}
+.steps li.now{border-color:var(--accent);color:var(--ink);font-weight:600}
+
+/* catalog */
+.hero{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);gap:28px;align-items:end;margin-bottom:26px}
+@media (max-width:800px){.hero{grid-template-columns:minmax(0,1fr)}}
+.hero p{max-width:56ch;color:var(--muted);margin-top:10px;font-size:16px}
+.how{display:flex;gap:8px;flex-wrap:wrap;font-size:13px}
+.how span{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:6px 10px}
+.how span b{font-family:var(--mono);color:var(--accent);margin-right:6px;font-weight:500}
+.cat{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:14px}
+.prod{display:flex;flex-direction:column;gap:8px;min-height:190px}
+.prod.live{border:2px solid var(--brand)}
+.prod .price{font-family:var(--display);font-size:22px;font-weight:700;margin-top:auto}
+.prod.soon{opacity:.72}
+
+/* upload */
+.drop{border:2px dashed var(--line);border-radius:14px;padding:38px 20px;text-align:center;background:var(--surface)}
+.drop.over{border-color:var(--accent);background:var(--warn-bg)}
+.scan{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.scan li{display:flex;gap:10px;align-items:baseline;color:var(--muted)}
+.scan li .dot{width:10px;height:10px;border-radius:50%;border:2px solid var(--line);flex:none;transform:translateY(1px)}
+.scan li.run{color:var(--ink);font-weight:500}
+.scan li.run .dot{border-color:var(--accent);border-top-color:transparent;animation:spin .7s linear infinite}
+.scan li.done{color:var(--ink)}
+.scan li.done .dot{background:var(--ok);border-color:var(--ok)}
+@keyframes spin{to{transform:translateY(1px) rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.scan li.run .dot{animation:none}}
+
+/* review */
+.kv{display:grid;grid-template-columns:150px minmax(0,1fr);gap:6px 14px;font-size:14.5px}
+.kv dt{color:var(--muted)} .kv dd{margin:0;display:flex;flex-wrap:wrap;gap:4px 8px;align-items:baseline}
+@media (max-width:560px){.kv{grid-template-columns:minmax(0,1fr)}.kv dt{margin-top:6px}}
+.sec-h{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap}
+.issue{border-left:5px solid var(--bad);background:var(--bad-bg);border-radius:8px;padding:14px 16px}
+.issue.fixed{border-color:var(--ok);background:var(--ok-bg)}
+.issue.soft{border-color:var(--warn);background:var(--warn-bg)}
+.cart{position:sticky;top:76px}
+.cart .tot{display:flex;justify-content:space-between;align-items:baseline;border-top:1px solid var(--line);padding-top:12px;margin-top:4px}
+.cart .tot b{font-family:var(--display);font-size:26px}
+.meter{height:8px;border-radius:99px;background:var(--sunk);overflow:hidden}
+.meter i{display:block;height:100%;background:var(--ok);border-radius:99px;transition:width .4s}
+input[type=date],input[type=email],input[type=text]{font:inherit;color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:5px 8px}
+.pay{display:grid;gap:8px}
+.pay label{display:flex;gap:10px;align-items:flex-start;border:1px solid var(--line);border-radius:8px;padding:11px 12px;cursor:pointer;background:var(--surface)}
+.pay label:has(input:checked){border-color:var(--brand);box-shadow:inset 0 0 0 1px var(--brand)}
+.pay input{margin-top:4px;accent-color:var(--brand)}
+
+/* tracking */
+.track{list-style:none;margin:0;padding:0}
+.track li{display:grid;grid-template-columns:22px minmax(0,1fr) auto;gap:12px;padding:0 0 18px;position:relative}
+.track li::before{content:"";position:absolute;left:10px;top:20px;bottom:0;width:2px;background:var(--line)}
+.track li:last-child::before{display:none}
+.track .b{width:22px;height:22px;border-radius:50%;border:2px solid var(--line);background:var(--surface);z-index:1}
+.track li.done .b{background:var(--ok);border-color:var(--ok)}
+.track li.done::before{background:var(--ok)}
+.track li.now .b{border-color:var(--accent);box-shadow:0 0 0 4px var(--warn-bg)}
+.track li.todo{color:var(--muted)}
+.track .t{font-family:var(--mono);font-size:12.5px;color:var(--muted);white-space:nowrap;padding-top:2px}
+.track .who{font-size:12px;color:var(--muted)}
+
+/* office */
+.office{display:grid;grid-template-columns:300px minmax(0,1fr);gap:20px;align-items:start}
+@media (max-width:900px){.office{grid-template-columns:minmax(0,1fr)}}
+.q{display:flex;flex-direction:column;gap:8px}
+.q button{text-align:left;border:1px solid var(--line);background:var(--surface);border-radius:var(--r);padding:11px 12px;display:flex;flex-direction:column;gap:5px}
+.q button[aria-current="true"]{border-color:var(--brand);box-shadow:inset 4px 0 0 var(--brand)}
+.q button.fake{opacity:.6;cursor:default}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+.kpi b{display:block;font-family:var(--display);font-size:26px;line-height:1.1}
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.tabs button{border:0;background:none;padding:9px 13px;font-weight:600;color:var(--muted);border-bottom:3px solid transparent;margin-bottom:-1px}
+.tabs button[aria-selected="true"]{color:var(--ink);border-color:var(--accent)}
+.log{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
+.log li{display:grid;grid-template-columns:64px minmax(0,1fr) auto;gap:10px;padding:9px 0;border-bottom:1px solid var(--line);font-size:14px}
+.log li:last-child{border-bottom:0}
+.doc{font-size:14px;line-height:1.55;border:1px solid var(--line);border-radius:6px;padding:26px clamp(16px,4vw,44px);background:var(--surface);max-width:760px}
+.doc h4{font-family:var(--body);text-align:center;letter-spacing:.2em;margin:18px 0 6px;font-size:15px}
+.doc p{margin:0 0 10px}
+.doc ol,.doc ul{margin:0 0 10px;padding-left:22px}
+.gen{background:var(--info-bg);border-radius:3px;padding:0 2px}
+.approve{border:2px solid var(--accent);border-radius:var(--r);padding:16px;background:var(--surface)}
+
+/* concept */
+.prose{max-width:70ch}
+.prose p{margin-bottom:12px}
+.bars{display:flex;height:44px;border-radius:8px;overflow:hidden;border:1px solid var(--line)}
+.bars div{display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:12px;color:#fff;min-width:0}
+.legend{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:8px 18px;font-size:13.5px;margin-top:12px}
+.legend span{display:flex;gap:8px;align-items:baseline}
+.legend b{white-space:nowrap}
+.legend i{width:11px;height:11px;border-radius:3px;flex:none;transform:translateY(1px)}
+.lvl{font-family:var(--mono);font-size:11.5px;border-radius:4px;padding:1px 6px;font-weight:500;white-space:nowrap}
+.lvl.a{background:var(--ok-bg);color:var(--ok)} .lvl.b{background:var(--warn-bg);color:var(--warn)} .lvl.c{background:var(--bad-bg);color:var(--bad)}
+.arch{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+.arch .card{padding:14px}
+.arch ul{margin:8px 0 0;padding-left:18px;font-size:14px}
+pre{font-family:var(--mono);font-size:12.5px;background:var(--sunk);border-radius:8px;padding:12px;overflow-x:auto;margin:0}
+.toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:8px;font-weight:500;z-index:50;max-width:calc(100% - 32px)}
+[hidden]{display:none!important}
+details{border:1px solid var(--line);border-radius:8px;padding:8px 12px;background:var(--surface)}
+summary{cursor:pointer;font-weight:600}
+.auth{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.find{display:flex;flex-direction:column;gap:8px;list-style:none;margin:0;padding:0}
+.find li{display:flex;gap:10px;align-items:baseline}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="top-in">
+    <div class="logo"><i></i>Povolovna</div>
+    <a href="./" class="small">← Prototyp a koncept</a>
+    <div class="spacer"></div>
+    <div class="auth" id="auth"></div>
+  </div>
+</header>
+<main class="wrap stack" style="gap:20px">
+  <div>
+    <h1>Nahrajte dokumentaci</h1>
+    <p class="muted" style="max-width:68ch;margin-top:8px">Balíček z Portálu stavebníka (ZIP). Soubory se zpracují ve vašem prohlížeči a nikam se neodesílají. Po přihlášení lze uložit vytěžené údaje, otisky souborů a výsledky kontrol.</p>
+  </div>
+  <div class="drop" id="drop">
+    <p style="font-weight:600;font-size:17px">Přetáhněte sem ZIP s dokumentací</p>
+    <p class="muted small" style="margin:6px 0 16px">balíček BPP s manifest.xml, žádostí a dokumentací</p>
+    <label class="btn brand" for="file">Vybrat soubor</label><input id="file" type="file" accept=".zip" hidden>
+  </div>
+  <div id="progress" class="card" hidden></div>
+  <div id="out" class="stack" style="gap:16px"></div>
+</main>
+<div class="toast" id="toast" hidden></div>
+
+<script src="vendor/jszip.min.js"></script>
+<script src="vendor/spark-md5.min.js"></script>
+<script src="vendor/pdf.min.js"></script>
+<script src="vendor/supabase.js"></script>
+<script>
+"use strict";
+const SUPA_URL = "https://jfdthwivurzmmxjsncru.supabase.co";
+const SUPA_KEY = "sb_publishable_f5YsQTH-AiDLZWeMUQKG5A_XElA-wLw";
+const sb = window.supabase.createClient(SUPA_URL, SUPA_KEY);
+pdfjsLib.GlobalWorkerOptions.workerSrc = "vendor/pdf.worker.min.js";
+
+const $ = s => document.querySelector(s);
+const esc = v => String(v ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const nfc = s => (s || "").normalize("NFC");
+const base = p => nfc(p.split("/").pop());
+function toast(m){ const t = $("#toast"); t.textContent = m; t.hidden = false; clearTimeout(toast.t); toast.t = setTimeout(() => t.hidden = true, 4000); }
+
+/* ---------- přihlášení ---------- */
+let user = null, R = null;
+function renderAuth(){
+  $("#auth").innerHTML = user
+    ? `<span class="small muted">${esc(user.email)}</span><button class="btn" id="logout">Odhlásit</button>`
+    : `<label class="small muted" for="email">Přihlášení</label><input id="email" type="email" placeholder="e-mail" autocomplete="email"><button class="btn" id="login">Poslat odkaz</button>`;
+  if (R) renderSave();
+}
+document.addEventListener("click", async e => {
+  if (e.target.id === "login"){
+    const email = $("#email").value.trim(); if (!email) return toast("Zadejte e-mail.");
+    const { error } = await sb.auth.signInWithOtp({ email, options: { emailRedirectTo: location.origin + location.pathname } });
+    toast(error ? "Odkaz se nepodařilo odeslat: " + error.message : "Přihlašovací odkaz je na cestě do e-mailu.");
+  }
+  if (e.target.id === "logout") await sb.auth.signOut();
+  if (e.target.id === "save") save();
+});
+sb.auth.onAuthStateChange((_e, s) => { user = s?.user || null; renderAuth(); });
+renderAuth();
+
+/* ---------- čtení PDF ---------- */
+const TS_OID = "060b2a864886f70d010910020e"; // časové razítko vložené v podpisu
+function pdfMarks(bytes){
+  const s = new TextDecoder("latin1").decode(bytes);
+  const part = /pdfaid:part[>="'\s]+(\d)/.exec(s), conf = /pdfaid:conformance[>="'\s]+([A-Za-z])/.exec(s);
+  const subs = [...s.matchAll(/\/SubFilter\s*\/([A-Za-z0-9.]+)/g)].map(m => m[1]);
+  const docTs = subs.filter(x => /RFC3161/i.test(x)).length;
+  let sigTs = 0;
+  for (const m of s.matchAll(/\/Contents\s*<([0-9A-Fa-f]{2000,})>/g)) if (m[1].toLowerCase().includes(TS_OID)) sigTs++;
+  return { pdfa: part ? part[1] + (conf ? conf[1].toLowerCase() : "") : null, podpisy: subs.length - docTs, razitko: docTs + sigTs > 0 };
+}
+async function pdfLines(bytes, maxPages){
+  const doc = await pdfjsLib.getDocument({ data: bytes.slice(), isEvalSupported: false }).promise;
+  const pages = [];
+  for (let p = 1; p <= Math.min(doc.numPages, maxPages); p++){
+    const tc = await (await doc.getPage(p)).getTextContent();
+    const rows = new Map();
+    for (const it of tc.items){
+      if (!it.str.trim()) continue;
+      const y = Math.round(it.transform[5] / 3) * 3;
+      (rows.get(y) || rows.set(y, []).get(y)).push([it.transform[4], it.str]);
+    }
+    pages.push([...rows.entries()].sort((a, b) => b[0] - a[0]).map(([, r]) => r.sort((a, b) => a[0] - b[0]).map(x => x[1]).join(" ").replace(/\s+/g, " ").trim()));
+  }
+  const n = doc.numPages; await doc.destroy();
+  return { pages, numPages: n };
+}
+
+/* ---------- manifest a žádost ---------- */
+const PART = { Project: "zadost", AccompanyingDocuments: "A", TechnicalReport: "B", SituationDrawings: "C", StructureDocumentation: "D", Papers: "doklad" };
+const PART_NAME = { zadost: "Žádost z portálu", A: "A Průvodní list", B: "B Souhrnná technická zpráva", C: "C Situační výkresy", D: "D Dokumentace objektů", doklad: "Doklady", jine: "Mimo manifest" };
+function parseManifest(xml){
+  const d = new DOMParser().parseFromString(xml, "application/xml");
+  const txt = n => d.getElementsByTagName(n)[0]?.textContent.trim() || "";
+  const items = [];
+  for (const el of d.querySelectorAll("[md5]")){
+    let part = "jine";
+    for (let a = el.parentElement; a; a = a.parentElement) if (PART[a.localName]){ part = PART[a.localName]; break; }
+    items.push({ name: nfc(el.textContent.trim()), md5: el.getAttribute("md5").toLowerCase(), part });
+  }
+  return { verze: txt("BPPVersion"), vytvoril: txt("CreatedBy"), vytvoreno: txt("Created"), items };
+}
+function parseZadost(xml){
+  const d = new DOMParser().parseFromString(xml, "application/xml");
+  const root = d.documentElement;
+  const kid = (el, n) => el && [...el.children].find(c => c.localName === n);
+  const t = (el, n) => kid(el, n)?.textContent.trim() || "";
+  const osoba = n => { const o = kid(root, n); return o && t(o, "nazev") ? { nazev: t(o, "nazev"), ico: t(o, "ico"), isds: t(o, "isds") } : null; };
+  const m = kid(root, "misto"), ch = kid(root, "charakteristika");
+  return {
+    pid: t(root, "pid"), nazev: t(root, "nazev"),
+    misto: [t(m, "ulice"), t(m, "castObce"), t(m, "obec")].filter(Boolean).join(", "),
+    druh: t(ch, "druhAUcelStavby"), novaStavba: t(ch, "novaStavba") === "true",
+    zahajeni: t(root, "zahajeni"), dokonceni: t(root, "dokonceni"),
+    zadatel: osoba("zadatelPO"), zastupce: osoba("zastupceZadatelePO"), podnikatel: osoba("stavebniPodnikatelPO"),
+    pozemky: [...(kid(root, "pozemky")?.children || [])].map(p => ({ ku: t(p, "katastralniUzemi"), parcela: t(p, "parcelniCislo"), druh: t(p, "druhPozemku"), vymera: parseInt(t(p, "vymera"), 10) || null }))
+  };
+}
+
+/* ---------- vytěžení průvodního listu ---------- */
+const DRUHY = "orná půda|chmelnice|vinice|zahrada|ovocný sad|trvalý travní porost|lesní pozemek|vodní plocha|zastavěná plocha a nádvoří|zastavěná plocha|ostatní plocha";
+function extractA(pages){
+  const lines = pages.flat(), out = { nazev: null, ku: null, kuKod: null, pozemky: [], autorizace: [] };
+  const i = lines.findIndex(l => /název stavby/i.test(l));
+  if (i >= 0) out.nazev = (lines[i + 1] || "").replace(/\.$/, "") || null;
+  const ku = /Katastrální území:\s*(.+?)\s*\[(\d{6})\]/.exec(lines.join("\n"));
+  if (ku){ out.ku = ku[1]; out.kuKod = parseInt(ku[2], 10); }
+  const from = lines.findIndex(l => /parcel/i.test(l) && /výměra/i.test(l));
+  const to = lines.findIndex((l, k) => k > from && /předmět dokumentace/i.test(l));
+  const re = new RegExp("^(\\d{1,5}(?:/\\d{1,4})?)\\s+(\\d{1,7})\\s+(" + DRUHY + ")", "i");
+  const scope = from >= 0 ? lines.slice(from, to > from ? to : undefined) : lines;
+  scope.forEach((l, k) => {
+    const m = re.exec(l); if (!m) return;
+    let druh = m[3].toLowerCase();
+    if (druh === "zastavěná plocha" && /a nádvoří/i.test((scope[k + 1] || "") + (scope[k + 2] || ""))) druh = "zastavěná plocha a nádvoří";
+    if (!out.pozemky.some(p => p.parcela === m[1])) out.pozemky.push({ parcela: m[1], vymera: parseInt(m[2], 10), druh });
+  });
+  out.autorizace = [...new Set([...lines.join("\n").matchAll(/(ČKAIT|ČKA)\s*[:\-]?\s*(\d{5,7})/g)].map(m => m[1] + " " + m[2]))];
+  return out;
+}
+
+/* ---------- analýza balíčku ---------- */
+function step(msg){ const p = $("#progress"); p.hidden = false; p.innerHTML = `<ul class="scan"><li class="run"><span class="dot"></span><span>${esc(msg)}</span></li></ul>`; }
+async function analyze(file){
+  R = null; $("#out").innerHTML = "";
+  step("Rozbaluji balíček…");
+  const zip = await JSZip.loadAsync(file, { decodeFileName: b => new TextDecoder("utf-8").decode(b) });
+  const entries = Object.values(zip.files).filter(f => !f.dir);
+  const mf = entries.find(f => base(f.name).toLowerCase() === "manifest.xml");
+  const manifest = mf ? parseManifest(await mf.async("string")) : null;
+  const byName = new Map((manifest?.items || []).map(i => [i.name, i]));
+  const files = []; let zadost = null, A = null, n = 0;
+  for (const f of entries){
+    const name = base(f.name); if (f === mf) continue;
+    step(`Čtu soubory ${++n} z ${entries.length - (mf ? 1 : 0)}: ${name}`);
+    const bytes = await f.async("uint8array"), buf = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
+    const sha = [...new Uint8Array(await crypto.subtle.digest("SHA-256", buf))].map(b => b.toString(16).padStart(2, "0")).join("");
+    const mi = byName.get(name);
+    const rec = { nazev: name, cesta: nfc(f.name), part: mi?.part || "jine", velikost: bytes.length, sha256: sha, md5ok: mi ? SparkMD5.ArrayBuffer.hash(buf) === mi.md5 : null, pdf: /\.pdf$/i.test(name) };
+    if (mi) mi.found = true;
+    if (rec.pdf){
+      Object.assign(rec, pdfMarks(bytes));
+      try {
+        const t = await pdfLines(bytes, rec.part === "A" ? 6 : 2);
+        rec.stran = t.numPages; rec.maText = t.pages.flat().join(" ").length > 40;
+        if (rec.part === "A" && !A) A = extractA(t.pages);
+      } catch (e){ rec.chyba = "PDF se nepodařilo otevřít"; }
+    } else if (rec.part === "zadost" && /\.xml$/i.test(name)){
+      try { zadost = parseZadost(new TextDecoder("utf-8").decode(bytes)); } catch (e){ rec.chyba = "XML žádosti se nepodařilo přečíst"; }
+    }
+    files.push(rec);
+  }
+  R = { balicek: file.name, manifest, files, zadost, A };
+  R.nalezy = compare(R); R.kontroly = checks(R);
+  $("#progress").hidden = true; render();
+}
+
+function compare({ zadost, A }){
+  const out = [];
+  if (!zadost || !A) return out;
+  const z = new Map(zadost.pozemky.map(p => [p.parcela, p])), a = new Map(A.pozemky.map(p => [p.parcela, p]));
+  for (const [k] of a) if (!z.has(k)) out.push({ typ: "parcela_chybi_v_zadosti", zavazne: true, text: `Parcela ${k} je v dokumentaci, v žádosti chybí.` });
+  for (const [k] of z) if (!a.has(k)) out.push({ typ: "parcela_chybi_v_dokumentaci", zavazne: true, text: `Parcela ${k} je v žádosti, v průvodním listu chybí.` });
+  for (const [k, p] of a){ const q = z.get(k); if (!q) continue;
+    if (p.vymera && q.vymera && p.vymera !== q.vymera) out.push({ typ: "vymera", zavazne: false, text: `Parcela ${k}: dokumentace uvádí ${p.vymera} m², žádost ${q.vymera} m².` });
+    if (p.druh && q.druh && !p.druh.startsWith(q.druh.toLowerCase()) && !q.druh.toLowerCase().startsWith(p.druh)) out.push({ typ: "druh", zavazne: false, text: `Parcela ${k}: dokumentace uvádí druh ${p.druh}, žádost ${q.druh}.` });
+  }
+  const norm = s => (s || "").toLowerCase().replace(/[^a-z0-9á-ž]+/gi, "");
+  if (A.nazev && zadost.nazev && norm(A.nazev) !== norm(zadost.nazev)) out.push({ typ: "nazev", zavazne: false, text: `Název stavby se liší: dokumentace „${A.nazev}", žádost „${zadost.nazev}".` });
+  return out;
+}
+
+function checks(r){
+  const k = [], add = (pravidlo, nazev, vysledek, blokujici, zduvodneni) => k.push({ pravidlo, nazev, vysledek, blokujici, zduvodneni });
+  const g = p => r.files.filter(f => f.part === p), dok = r.files.filter(f => "ABCD".includes(f.part) && f.pdf);
+  if (!r.manifest) add("manifest", "Manifest balíčku", "blokuje", true, "V balíčku není manifest.xml.");
+  else {
+    const miss = r.manifest.items.filter(i => !i.found), bad = r.files.filter(f => f.md5ok === false);
+    add("manifest", "Úplnost a otisky podle manifestu", miss.length || bad.length ? "blokuje" : "ok", true,
+      miss.length || bad.length ? `Chybí ${miss.length} souborů, ${bad.length} má jiný otisk.` : `${r.manifest.items.length} souborů, všechny otisky souhlasí.`);
+  }
+  const need = [["A", 1], ["B", 1], ["C", 3], ["D", 1]].filter(([p, c]) => g(p).length < c).map(x => x[0]);
+  add("uplnost", "Části dokumentace A až D", need.length ? "blokuje" : "ok", true, need.length ? "Chybí nebo je neúplná část " + need.join(", ") + "." : `A ${g("A").length}, B ${g("B").length}, C ${g("C").length}, D ${g("D").length} souborů.`);
+  if (!r.zadost || !r.A) add("shoda_pozemku", "Shoda pozemků v žádosti a dokumentaci", "neprovedeno", true, !r.zadost ? "Žádost v XML nebyla nalezena." : "Průvodní list se nepodařilo vytěžit.");
+  else {
+    const z = r.nalezy.filter(n => n.zavazne), m = r.nalezy.filter(n => !n.zavazne);
+    add("shoda_pozemku", "Shoda pozemků v žádosti a dokumentaci", z.length ? "blokuje" : "ok", true, z.length ? z.map(n => n.text).join(" ") : `${r.A.pozemky.length} parcel souhlasí.`);
+    add("shoda_udaju", "Shoda výměr, druhů a názvu", m.length ? "upozorneni" : "ok", false, m.length ? m.map(n => n.text).join(" ") : "Bez rozdílů.");
+  }
+  const noA = dok.filter(f => !f.pdfa || f.pdfa[0] !== "3"), noS = dok.filter(f => !f.podpisy), vyk = dok.filter(f => f.part === "C" || f.part === "D"), noT = vyk.filter(f => !f.razitko);
+  add("format_pdfa3", "Formát PDF/A-3 u dokumentace", noA.length ? "upozorneni" : "ok", false, `${dok.length - noA.length} z ${dok.length} souborů deklaruje PDF/A-3.`);
+  add("autorizacni_razitko", "Elektronický podpis nebo razítko u dokumentace", noS.length ? "upozorneni" : "ok", false, `${dok.length - noS.length} z ${dok.length} souborů nese elektronický podpis. Zda jde o autorizační razítko, se zatím neověřuje.`);
+  add("casove_razitko", "Časové razítko u částí C a D", noT.length ? "upozorneni" : "ok", false, `${vyk.length - noT.length} z ${vyk.length} souborů má časové razítko.`);
+  const dk = g("doklad").filter(f => f.pdf), sk = dk.filter(f => f.maText === false);
+  add("textova_vrstva", "Textová vrstva dokladů", sk.length ? "upozorneni" : "ok", false, `${sk.length} z ${dk.length} dokladů je sken bez textu.`);
+  return k;
+}
+
+/* ---------- zobrazení ---------- */
+const PILL = { ok: ["ok", "V pořádku"], upozorneni: ["warn", "Upozornění"], blokuje: ["bad", "Brání odeslání"], neprovedeno: ["idle", "Neprovedeno"] };
+const yes = (v, t = "ano", f = "ne") => v ? `<span class="pill ok">${t}</span>` : `<span class="pill warn">${f}</span>`;
+function render(){
+  const r = R, z = r.zadost, a = r.A, blok = r.kontroly.filter(k => k.vysledek === "blokuje").length, upo = r.kontroly.filter(k => k.vysledek === "upozorneni").length;
+  const parts = ["zadost", "A", "B", "C", "D", "doklad", "jine"].map(p => [p, r.files.filter(f => f.part === p)]).filter(x => x[1].length);
+  const os = (n, o) => o ? `<dt>${n}</dt><dd>${esc(o.nazev)}${o.ico ? `, IČO ${esc(o.ico)}` : ""} <span class="src">žádost XML</span></dd>` : "";
+  $("#out").innerHTML = `
+  <div class="issue ${blok ? "" : upo ? "soft" : "fixed"}"><b>${blok ? `${blok} ${blok === 1 ? "kontrola brání" : "kontroly brání"} odeslání` : "Nic nebrání odeslání"}${upo ? `, ${upo} upozornění` : ""}.</b> Balíček ${esc(r.balicek)}: ${r.files.length} souborů${r.manifest ? `, formát BPP ${esc(r.manifest.verze)}, vytvořil ${esc(r.manifest.vytvoril)}` : ""}.</div>
+
+  <section class="card"><div class="sec-h"><h3>Kontroly</h3><span class="small muted">${r.kontroly.length} pravidel</span></div>
+    <div class="tblwrap"><table><tr><th>Kontrola</th><th>Výsledek</th><th>Zjištění</th></tr>
+    ${r.kontroly.map(k => `<tr><td><b>${esc(k.nazev)}</b>${k.blokujici ? "" : `<br><span class="small muted">zkušební režim, neblokuje</span>`}</td><td><span class="pill ${PILL[k.vysledek][0]}">${PILL[k.vysledek][1]}</span></td><td class="small">${esc(k.zduvodneni)}</td></tr>`).join("")}
+    </table></div></section>
+
+  ${z ? `<section class="card"><div class="sec-h"><h3>Žádost</h3><span class="src">${esc(z.pid)}</span></div><dl class="kv">
+    <dt>Název</dt><dd>${esc(z.nazev)} <span class="src">žádost XML</span></dd>
+    ${a?.nazev ? `<dt>Název v dokumentaci</dt><dd>${esc(a.nazev)} <span class="src">A, průvodní list</span></dd>` : ""}
+    <dt>Místo</dt><dd>${esc(z.misto)}${a?.ku ? `, k. ú. ${esc(a.ku)} [${a.kuKod}]` : ""}</dd>
+    <dt>Druh stavby</dt><dd>${z.novaStavba ? "nová stavba, " : ""}${esc(z.druh)}</dd>
+    <dt>Termíny</dt><dd>${esc(z.zahajeni)} až ${esc(z.dokonceni)}</dd>
+    ${os("Stavebník", z.zadatel)}${os("Zástupce", z.zastupce)}${os("Stavební podnikatel", z.podnikatel)}
+    ${a?.autorizace.length ? `<dt>Autorizace</dt><dd>${a.autorizace.map(esc).join(", ")} <span class="src">A, průvodní list</span></dd>` : ""}
+  </dl></section>` : ""}
+
+  ${z || a ? `<section class="card"><div class="sec-h"><h3>Pozemky</h3><span class="pill ${r.nalezy.length ? "warn" : "ok"}">${r.nalezy.length ? "nálezy: " + r.nalezy.length : "bez nálezu"}</span></div>
+    <div class="tblwrap"><table><tr><th>Parcela</th><th class="r">Výměra v dokumentaci</th><th class="r">Výměra v žádosti</th><th>Druh</th><th>Stav</th></tr>
+    ${[...new Set([...(a?.pozemky || []), ...(z?.pozemky || [])].map(p => p.parcela))].map(k => { const p = a?.pozemky.find(x => x.parcela === k), q = z?.pozemky.find(x => x.parcela === k);
+      const st = !a || !z ? `<span class="pill idle">neporovnáno</span>` : !q ? `<span class="pill bad">chybí v žádosti</span>` : !p ? `<span class="pill bad">chybí v dokumentaci</span>` : p.vymera !== q.vymera ? `<span class="pill warn">jiná výměra</span>` : `<span class="pill ok">souhlasí</span>`;
+      return `<tr><td class="mono">${esc(k)}</td><td class="r num">${p?.vymera ?? "–"}</td><td class="r num">${q?.vymera ?? "–"}</td><td>${esc(p?.druh || q?.druh || "")}</td><td>${st}</td></tr>`; }).join("")}
+    </table></div></section>` : ""}
+
+  <section class="card"><div class="sec-h"><h3>Soubory, formát a autorizace</h3><span class="small muted">kontrola deklarace v souboru, ne plná validace</span></div>
+    <div class="tblwrap"><table><tr><th>Část</th><th class="r">Souborů</th><th class="r">PDF/A-3</th><th class="r">S podpisem</th><th class="r">S časovým razítkem</th><th class="r">Skenů bez textu</th></tr>
+    ${parts.map(([p, fs]) => { const pd = fs.filter(f => f.pdf); return `<tr><td>${PART_NAME[p]}</td><td class="r num">${fs.length}</td><td class="r num">${pd.filter(f => f.pdfa && f.pdfa[0] === "3").length}</td><td class="r num">${pd.filter(f => f.podpisy).length}</td><td class="r num">${pd.filter(f => f.razitko).length}</td><td class="r num">${pd.filter(f => f.maText === false).length}</td></tr>`; }).join("")}
+    </table></div>
+    <details style="margin-top:12px"><summary>Všech ${r.files.length} souborů</summary>
+    <div class="tblwrap" style="margin-top:8px"><table><tr><th>Soubor</th><th>Část</th><th>Otisk dle manifestu</th><th>PDF/A</th><th>Podpis</th><th>Čas. razítko</th><th>Text</th></tr>
+    ${r.files.map(f => `<tr><td class="small">${esc(f.nazev)}${f.chyba ? `<br><span class="pill bad">${esc(f.chyba)}</span>` : ""}</td><td class="small">${p_short(f.part)}</td><td>${f.md5ok === null ? `<span class="pill idle">není v manifestu</span>` : yes(f.md5ok, "souhlasí", "nesouhlasí")}</td>${f.pdf ? `<td>${f.pdfa ? `<span class="pill ${f.pdfa[0] === "3" ? "ok" : "warn"}">${esc(f.pdfa)}</span>` : `<span class="pill warn">ne</span>`}</td><td>${yes(f.podpisy)}</td><td>${yes(f.razitko)}</td><td>${f.maText === undefined ? "" : yes(f.maText, "ano", "sken")}</td>` : `<td colspan="4" class="small muted">není PDF</td>`}</tr>`).join("")}
+    </table></div></details></section>
+
+  <section class="card stack" id="savebox"></section>`;
+  renderSave();
+}
+const p_short = p => ({ zadost: "žádost", doklad: "doklad", jine: "mimo" }[p] || p);
+function renderSave(){
+  const b = $("#savebox"); if (!b) return;
+  b.innerHTML = `<h3>Uložit do databáze</h3>
+    <p class="small">Uloží se údaje žádosti, pozemky, výsledky kontrol a u každého souboru název, otisk a zjištěné vlastnosti. Samotné soubory zůstávají ve vašem počítači.</p>
+    ${R.saved ? `<p><span class="pill ok">Uloženo</span> <span class="mono small">${esc(R.saved)}</span></p>`
+      : user ? `<div><button class="btn pri" id="save">Uložit řízení jako koncept</button></div>`
+      : `<p class="small muted">Pro uložení se nahoře přihlaste odkazem z e-mailu. Výsledky analýzy vidíte i bez přihlášení.</p>`}`;
+}
+
+/* ---------- uložení ---------- */
+async function save(){
+  const r = R, z = r.zadost || {}, btn = $("#save"); btn.disabled = true;
+  const must = async q => { const { data, error } = await q; if (error) throw error; return data; };
+  try {
+    const row = await must(sb.from("rizeni").insert({ typ: "povoleni_zrychlene", nazev: z.nazev || r.A?.nazev || r.balicek, cislo_zameru: z.pid || null, stav: "koncept", zalozil: user.id,
+      zadost: { zadost: r.zadost, pruvodni_list: r.A, nalezy: r.nalezy } }).select("id").single());
+    const id = row.id, poz = r.A?.pozemky.length ? r.A.pozemky : (z.pozemky || []);
+    if (poz.length) await must(sb.from("pozemky").insert(poz.map(p => ({ rizeni: id, katastr_kod: r.A?.kuKod || 0, parcela: p.parcela, vymera: p.vymera, druh: p.druh }))));
+    await must(sb.from("soubory").insert(r.files.map(f => ({ rizeni: id, nazev: f.nazev, cast_dokumentace: f.part, sha256: f.sha256, ma_text: f.maText ?? null, pdfa: f.pdfa ?? null, pocet_podpisu: f.podpisy ?? null, ma_casove_razitko: f.razitko ?? null }))));
+    await must(sb.from("kontroly").insert(r.kontroly.map(k => ({ rizeni: id, pravidlo: k.pravidlo, vysledek: k.vysledek, blokujici: k.blokujici, zduvodneni: k.zduvodneni }))));
+    await must(sb.from("udalosti").insert({ rizeni: id, typ: "balicek.analyzovan", puvodce: user.id, data: { souboru: r.files.length, blokuje: r.kontroly.filter(k => k.vysledek === "blokuje").length } }));
+    R.saved = id; renderSave(); toast("Řízení uloženo jako koncept.");
+  } catch (e){ btn.disabled = false; toast("Uložení se nepodařilo: " + (e.message || e)); }
+}
+
+/* ---------- vstup ---------- */
+async function take(file){
+  if (!file) return;
+  try { await analyze(file); }
+  catch (e){ $("#progress").hidden = true; $("#out").innerHTML = `<div class="issue"><b>Balíček se nepodařilo zpracovat.</b> ${esc(e.message || e)} Zkontrolujte, že jde o ZIP.</div>`; }
+}
+const drop = $("#drop");
+["dragover", "dragenter"].forEach(e => drop.addEventListener(e, ev => { ev.preventDefault(); drop.classList.add("over"); }));
+["dragleave", "drop"].forEach(e => drop.addEventListener(e, ev => { ev.preventDefault(); drop.classList.remove("over"); }));
+drop.addEventListener("drop", ev => take(ev.dataTransfer.files[0]));
+$("#file").addEventListener("change", ev => take(ev.target.files[0]));
+</script>
+</body>
+</html>
