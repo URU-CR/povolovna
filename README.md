@@ -2,6 +2,8 @@
 
 Prototyp aplikace, která automatizuje řízení o povolení stavby od podání žádosti po vydání rozhodnutí. První krok: povolení záměru ve zrychleném řízení.
 
+Aplikace vychází ze stavu po 1. 1. 2028: jednotná státní stavební správa (Úřad rozvoje území ČR, 14 úřadů rozvoje území krajů, 205 územních pracovišť), jedno podací místo, integrovaná působnost dotčených orgánů.
+
 - **Stavebník** – e-shop ve čtyřech krocích: vyberu, nahraju dokumentaci, zkontroluju, zaplatím a odešlu.
 - **Úřad** – systém připraví vše, co může; úředník rozhoduje a podepisuje.
 - **Koncept** – rozbor skutečného spisu, navržené změny legislativy, architektura a další kroky.

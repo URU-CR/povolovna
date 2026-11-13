@@ -96,6 +96,14 @@ function parseZadost(xml){
   };
 }
 
+/* ---------- příslušnost v soustavě ÚRÚ (stav od 1. 1. 2028), orientační ---------- */
+function prislusnost(z){
+  const d = ((z?.druh || "") + " " + (z?.nazev || "")).toLowerCase();
+  if (/dálnic|dráh|drah|nádraž|železni|tramvaj|trolejbus|letišt|letec|jadern/.test(d)) return { uroven: "uru", urad: "Úřad rozvoje území ČR", duvod: "podle druhu stavby jde zřejmě o vyhrazenou stavbu (příloha č. 3)" };
+  if (/silnic\w* i\. třídy|fotovolt|větrn|přehrad/.test(d)) return { uroven: "kraj", urad: "úřad rozvoje území kraje", duvod: "podle druhu stavby jde zřejmě o záměr, který rozhoduje kraj" };
+  return { uroven: "up", urad: "územní pracoviště úřadu rozvoje území kraje", duvod: "záměr nespadá mezi vyhrazené stavby ani záměry kraje" };
+}
+
 /* ---------- vytěžení průvodního listu ---------- */
 const DRUHY = "orná půda|chmelnice|vinice|zahrada|ovocný sad|trvalý travní porost|lesní pozemek|vodní plocha|zastavěná plocha a nádvoří|zastavěná plocha|ostatní plocha";
 function extractA(pages){
@@ -149,7 +157,7 @@ async function analyze(file){
     }
     files.push(rec);
   }
-  R = { balicek: file.name, manifest, files, zadost, A };
+  R = { balicek: file.name, manifest, files, zadost, A, prislusnost: prislusnost(zadost) };
   R.nalezy = compare(R); R.kontroly = checks(R);
   if (!batch){ if ($("#progress")) $("#progress").hidden = true; render(); }
 }
@@ -329,6 +337,7 @@ function render(){
       ${a?.nazev ? `<dt>Název v dokumentaci</dt><dd>${esc(a.nazev)} <span class="src">A, průvodní list</span></dd>` : ""}
       <dt>Místo</dt><dd>${esc(z.misto)}${a?.ku ? `, k. ú. ${esc(a.ku)} [${a.kuKod}]` : ""}</dd>
       <dt>Druh stavby</dt><dd>${z.novaStavba ? "nová stavba, " : ""}${esc(z.druh)}</dd>
+      <dt>Příslušný úřad</dt><dd>${esc(r.prislusnost.urad)} <span class="pill info">odhad systému</span> <span class="small muted">${esc(r.prislusnost.duvod)}${r.prislusnost.uroven === "uru" ? "" : `; pracoviště se určí podle obce (${esc(z.misto.split(", ").pop())})`}. Soustava ÚRÚ od 1. 1. 2028.</span></dd>
       <dt>Termíny</dt><dd>${esc(z.zahajeni)} až ${esc(z.dokonceni)}</dd>
       ${os("Stavebník", z.zadatel)}${os("Zástupce", z.zastupce)}${os("Stavební podnikatel", z.podnikatel)}
       ${a?.autorizace.length ? `<dt>Autorizace</dt><dd>${a.autorizace.map(esc).join(", ")} <span class="src">A, průvodní list</span></dd>` : ""}
@@ -397,7 +406,7 @@ async function save(){
   const r = R, z = r.zadost || {}, btn = $("#save"); btn.disabled = true;
   const must = async q => { const { data, error } = await q; if (error) throw error; return data; };
   try {
-    const row = await must(sb.from("rizeni").insert({ typ: "povoleni_zrychlene", nazev: z.nazev || r.A?.nazev || r.balicek, cislo_zameru: z.pid || null, stav: "koncept", zalozil: user.id,
+    const row = await must(sb.from("rizeni").insert({ typ: "povoleni_zrychlene", nazev: z.nazev || r.A?.nazev || r.balicek, cislo_zameru: z.pid || null, stav: "koncept", zalozil: user.id, urad: r.prislusnost?.urad || null, utvar: r.prislusnost?.uroven || null,
       zadost: { zadost: r.zadost, pruvodni_list: r.A, nalezy: r.nalezy } }).select("id").single());
     const id = row.id, poz = r.A?.pozemky.length ? r.A.pozemky : (z.pozemky || []);
     if (poz.length) await must(sb.from("pozemky").insert(poz.map(p => ({ rizeni: id, katastr_kod: r.A?.kuKod || 0, parcela: p.parcela, vymera: p.vymera, druh: p.druh }))));
