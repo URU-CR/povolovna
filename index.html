@@ -1,0 +1,803 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Povolovna – prototyp</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* Layout: horní lišta s přepínačem pohledů; stavebník = úzký sloupec + košík vpravo; úřad = fronta vlevo, detail vpravo */
+:root{
+  --bg:#f3f5f4; --surface:#ffffff; --sunk:#e9edeb; --ink:#13211f; --muted:#5a6966; --line:#d5dcd9;
+  --brand:#0e5a52; --brand-ink:#ffffff; --accent:#d9541a; --accent-ink:#ffffff;
+  --ok:#1b7a45; --ok-bg:#e2f3e9; --warn:#9a6200; --warn-bg:#fbefd2; --bad:#b3261e; --bad-bg:#fbe4e1; --info:#1c5a9c; --info-bg:#e1edf9;
+  --display:"Bricolage Grotesque","IBM Plex Sans",system-ui,sans-serif;
+  --body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Consolas,monospace;
+  --r:10px;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    color-scheme:dark;
+    --bg:#0f1716; --surface:#172220; --sunk:#1e2b29; --ink:#e7efed; --muted:#9bacA8; --line:#2c3b38;
+    --brand:#5fc9b9; --brand-ink:#06211d; --accent:#ff8a4f; --accent-ink:#2a1002;
+    --ok:#6fd79b; --ok-bg:#143524; --warn:#f0c064; --warn-bg:#3a2c0c; --bad:#ff9a90; --bad-bg:#40191a; --info:#8dc0f5; --info-bg:#14304d;
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#0f1716; --surface:#172220; --sunk:#1e2b29; --ink:#e7efed; --muted:#9bacA8; --line:#2c3b38;
+  --brand:#5fc9b9; --brand-ink:#06211d; --accent:#ff8a4f; --accent-ink:#2a1002;
+  --ok:#6fd79b; --ok-bg:#143524; --warn:#f0c064; --warn-bg:#3a2c0c; --bad:#ff9a90; --bad-bg:#40191a; --info:#8dc0f5; --info-bg:#14304d;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font:400 15px/1.5 var(--body);-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:var(--display);text-wrap:balance;margin:0;line-height:1.15}
+h1{font-size:clamp(26px,4vw,38px);font-weight:700;letter-spacing:-.01em}
+h2{font-size:22px;font-weight:700}
+h3{font-size:16px;font-weight:700}
+p{margin:0}
+a{color:var(--brand)}
+button{font:inherit;color:inherit;cursor:pointer}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.mono{font-family:var(--mono);font-size:.92em}
+.muted{color:var(--muted)}
+.small{font-size:13px}
+.num{font-variant-numeric:tabular-nums}
+
+/* top bar */
+.top{position:sticky;top:0;z-index:20;background:var(--surface);border-bottom:1px solid var(--line)}
+.top-in{max-width:1180px;margin:0 auto;padding:10px 16px;display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center}
+.logo{font-family:var(--display);font-weight:700;font-size:20px;display:flex;align-items:center;gap:8px}
+.logo i{width:22px;height:22px;border-radius:6px;background:var(--brand);display:inline-block;position:relative}
+.logo i::after{content:"";position:absolute;left:6px;top:5px;width:6px;height:10px;border:solid var(--brand-ink);border-width:0 2.5px 2.5px 0;transform:rotate(40deg)}
+.seg{display:inline-flex;background:var(--sunk);border-radius:999px;padding:3px;gap:2px}
+.seg button{border:0;background:transparent;padding:6px 14px;border-radius:999px;font-weight:500;color:var(--muted)}
+.seg button[aria-pressed="true"]{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.15)}
+.seg.law button[aria-pressed="true"]{background:var(--brand);color:var(--brand-ink)}
+.spacer{flex:1}
+.wrap{max-width:1180px;margin:0 auto;padding:24px 16px 80px}
+.demo-note{font-size:12.5px;color:var(--muted);border:1px dashed var(--line);border-radius:999px;padding:3px 10px}
+
+/* bits */
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:18px}
+.stack{display:flex;flex-direction:column;gap:14px}
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.grid2{display:grid;grid-template-columns:minmax(0,1fr) 330px;gap:20px;align-items:start}
+@media (max-width:900px){.grid2{grid-template-columns:minmax(0,1fr)}}
+.btn{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:9px 16px;font-weight:600}
+.btn:hover{border-color:var(--ink)}
+.btn.pri{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.pri:hover{filter:brightness(1.07)}
+.btn.brand{background:var(--brand);border-color:var(--brand);color:var(--brand-ink)}
+.btn.big{padding:13px 22px;font-size:16px}
+.btn[disabled]{opacity:.45;cursor:not-allowed}
+.btn.link{border:0;background:none;padding:0;color:var(--brand);text-decoration:underline;font-weight:500}
+.pill{display:inline-flex;align-items:center;gap:5px;border-radius:999px;padding:2px 9px;font-size:12.5px;font-weight:600;white-space:nowrap}
+.pill::before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor}
+.pill.ok{background:var(--ok-bg);color:var(--ok)} .pill.warn{background:var(--warn-bg);color:var(--warn)}
+.pill.bad{background:var(--bad-bg);color:var(--bad)} .pill.info{background:var(--info-bg);color:var(--info)}
+.pill.idle{background:var(--sunk);color:var(--muted)}
+.src{font-family:var(--mono);font-size:11.5px;color:var(--muted);background:var(--sunk);border-radius:4px;padding:1px 6px;white-space:nowrap}
+.tblwrap{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:14px}
+th{text-align:left;font-weight:600;color:var(--muted);font-size:12.5px;padding:6px 10px 6px 0;border-bottom:1px solid var(--line);white-space:nowrap}
+td{padding:8px 10px 8px 0;border-bottom:1px solid var(--line);vertical-align:top}
+tr:last-child td{border-bottom:0}
+td.r,th.r{text-align:right}
+
+/* stepper */
+.steps{display:flex;gap:6px;list-style:none;margin:0 0 22px;padding:0;flex-wrap:wrap}
+.steps li{flex:1 1 130px;border-top:4px solid var(--line);padding-top:8px;font-size:13px;color:var(--muted);font-weight:500}
+.steps li b{display:block;font-family:var(--mono);font-size:11.5px;font-weight:500}
+.steps li.done{border-color:var(--brand);color:var(--ink)}
+.steps li.now{border-color:var(--accent);color:var(--ink);font-weight:600}
+
+/* catalog */
+.hero{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);gap:28px;align-items:end;margin-bottom:26px}
+@media (max-width:800px){.hero{grid-template-columns:minmax(0,1fr)}}
+.hero p{max-width:56ch;color:var(--muted);margin-top:10px;font-size:16px}
+.how{display:flex;gap:8px;flex-wrap:wrap;font-size:13px}
+.how span{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:6px 10px}
+.how span b{font-family:var(--mono);color:var(--accent);margin-right:6px;font-weight:500}
+.cat{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:14px}
+.prod{display:flex;flex-direction:column;gap:8px;min-height:190px}
+.prod.live{border:2px solid var(--brand)}
+.prod .price{font-family:var(--display);font-size:22px;font-weight:700;margin-top:auto}
+.prod.soon{opacity:.72}
+
+/* upload */
+.drop{border:2px dashed var(--line);border-radius:14px;padding:38px 20px;text-align:center;background:var(--surface)}
+.drop.over{border-color:var(--accent);background:var(--warn-bg)}
+.scan{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.scan li{display:flex;gap:10px;align-items:baseline;color:var(--muted)}
+.scan li .dot{width:10px;height:10px;border-radius:50%;border:2px solid var(--line);flex:none;transform:translateY(1px)}
+.scan li.run{color:var(--ink);font-weight:500}
+.scan li.run .dot{border-color:var(--accent);border-top-color:transparent;animation:spin .7s linear infinite}
+.scan li.done{color:var(--ink)}
+.scan li.done .dot{background:var(--ok);border-color:var(--ok)}
+@keyframes spin{to{transform:translateY(1px) rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.scan li.run .dot{animation:none}}
+
+/* review */
+.kv{display:grid;grid-template-columns:150px minmax(0,1fr);gap:6px 14px;font-size:14.5px}
+.kv dt{color:var(--muted)} .kv dd{margin:0;display:flex;flex-wrap:wrap;gap:4px 8px;align-items:baseline}
+@media (max-width:560px){.kv{grid-template-columns:minmax(0,1fr)}.kv dt{margin-top:6px}}
+.sec-h{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap}
+.issue{border-left:5px solid var(--bad);background:var(--bad-bg);border-radius:8px;padding:14px 16px}
+.issue.fixed{border-color:var(--ok);background:var(--ok-bg)}
+.issue.soft{border-color:var(--warn);background:var(--warn-bg)}
+.cart{position:sticky;top:76px}
+.cart .tot{display:flex;justify-content:space-between;align-items:baseline;border-top:1px solid var(--line);padding-top:12px;margin-top:4px}
+.cart .tot b{font-family:var(--display);font-size:26px}
+.meter{height:8px;border-radius:99px;background:var(--sunk);overflow:hidden}
+.meter i{display:block;height:100%;background:var(--ok);border-radius:99px;transition:width .4s}
+input[type=date],input[type=email],input[type=text]{font:inherit;color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:5px 8px}
+.pay{display:grid;gap:8px}
+.pay label{display:flex;gap:10px;align-items:flex-start;border:1px solid var(--line);border-radius:8px;padding:11px 12px;cursor:pointer;background:var(--surface)}
+.pay label:has(input:checked){border-color:var(--brand);box-shadow:inset 0 0 0 1px var(--brand)}
+.pay input{margin-top:4px;accent-color:var(--brand)}
+
+/* tracking */
+.track{list-style:none;margin:0;padding:0}
+.track li{display:grid;grid-template-columns:22px minmax(0,1fr) auto;gap:12px;padding:0 0 18px;position:relative}
+.track li::before{content:"";position:absolute;left:10px;top:20px;bottom:0;width:2px;background:var(--line)}
+.track li:last-child::before{display:none}
+.track .b{width:22px;height:22px;border-radius:50%;border:2px solid var(--line);background:var(--surface);z-index:1}
+.track li.done .b{background:var(--ok);border-color:var(--ok)}
+.track li.done::before{background:var(--ok)}
+.track li.now .b{border-color:var(--accent);box-shadow:0 0 0 4px var(--warn-bg)}
+.track li.todo{color:var(--muted)}
+.track .t{font-family:var(--mono);font-size:12.5px;color:var(--muted);white-space:nowrap;padding-top:2px}
+.track .who{font-size:12px;color:var(--muted)}
+
+/* office */
+.office{display:grid;grid-template-columns:300px minmax(0,1fr);gap:20px;align-items:start}
+@media (max-width:900px){.office{grid-template-columns:minmax(0,1fr)}}
+.q{display:flex;flex-direction:column;gap:8px}
+.q button{text-align:left;border:1px solid var(--line);background:var(--surface);border-radius:var(--r);padding:11px 12px;display:flex;flex-direction:column;gap:5px}
+.q button[aria-current="true"]{border-color:var(--brand);box-shadow:inset 4px 0 0 var(--brand)}
+.q button.fake{opacity:.6;cursor:default}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+.kpi b{display:block;font-family:var(--display);font-size:26px;line-height:1.1}
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.tabs button{border:0;background:none;padding:9px 13px;font-weight:600;color:var(--muted);border-bottom:3px solid transparent;margin-bottom:-1px}
+.tabs button[aria-selected="true"]{color:var(--ink);border-color:var(--accent)}
+.log{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
+.log li{display:grid;grid-template-columns:64px minmax(0,1fr) auto;gap:10px;padding:9px 0;border-bottom:1px solid var(--line);font-size:14px}
+.log li:last-child{border-bottom:0}
+.doc{font-size:14px;line-height:1.55;border:1px solid var(--line);border-radius:6px;padding:26px clamp(16px,4vw,44px);background:var(--surface);max-width:760px}
+.doc h4{font-family:var(--body);text-align:center;letter-spacing:.2em;margin:18px 0 6px;font-size:15px}
+.doc p{margin:0 0 10px}
+.doc ol,.doc ul{margin:0 0 10px;padding-left:22px}
+.gen{background:var(--info-bg);border-radius:3px;padding:0 2px}
+.approve{border:2px solid var(--accent);border-radius:var(--r);padding:16px;background:var(--surface)}
+
+/* concept */
+.prose{max-width:70ch}
+.prose p{margin-bottom:12px}
+.bars{display:flex;height:44px;border-radius:8px;overflow:hidden;border:1px solid var(--line)}
+.bars div{display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:12px;color:#fff;min-width:0}
+.legend{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:8px 18px;font-size:13.5px;margin-top:12px}
+.legend span{display:flex;gap:8px;align-items:baseline}
+.legend b{white-space:nowrap}
+.legend i{width:11px;height:11px;border-radius:3px;flex:none;transform:translateY(1px)}
+.lvl{font-family:var(--mono);font-size:11.5px;border-radius:4px;padding:1px 6px;font-weight:500;white-space:nowrap}
+.lvl.a{background:var(--ok-bg);color:var(--ok)} .lvl.b{background:var(--warn-bg);color:var(--warn)} .lvl.c{background:var(--bad-bg);color:var(--bad)}
+.arch{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+.arch .card{padding:14px}
+.arch ul{margin:8px 0 0;padding-left:18px;font-size:14px}
+pre{font-family:var(--mono);font-size:12.5px;background:var(--sunk);border-radius:8px;padding:12px;overflow-x:auto;margin:0}
+.toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:8px;font-weight:500;z-index:50;max-width:calc(100% - 32px)}
+[hidden]{display:none!important}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="top-in">
+    <div class="logo"><i></i>Povolovna</div>
+    <div class="seg" role="group" aria-label="Pohled">
+      <button data-view="stavebnik" aria-pressed="true">Stavebník</button>
+      <button data-view="urad" aria-pressed="false">Úřad</button>
+      <button data-view="koncept" aria-pressed="false">Koncept</button>
+    </div>
+    <div class="spacer"></div>
+    <span class="small muted">Právní režim</span>
+    <div class="seg law" role="group" aria-label="Právní režim">
+      <button data-law="dnes" aria-pressed="true" title="Co jde postavit bez změny zákonů">Dnešní zákony</button>
+      <button data-law="cil" aria-pressed="false" title="Proces po navržených změnách legislativy">Cílový stav</button>
+    </div>
+    <span class="demo-note">Prototyp · simulace na anonymizovaných datech skutečného spisu</span>
+  </div>
+</header>
+<main class="wrap" id="app"></main>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+/* ===== Data vycházejí ze skutečného spisu zrychleného řízení; osoby, firmy, IČO, místo a značky jsou anonymizované ===== */
+const C = {
+  nazev: "Zázemí pro řidiče MHD, konečná Sídliště",
+  popis: "Novostavba zázemí pro řidiče (buňka typu A) s přípojkou vodovodu a splaškové kanalizace, vnitřní rozvod NN pro jízdenkový automat a označník.",
+  poplatek: 19000,
+  pozemky: [
+    ["2882/1", 23078, "ostatní plocha", ""],
+    ["2883/1", 238, "zastavěná plocha a nádvoří", "Ve skutečné žádosti (ručně vyplněný formulář) tato parcela chyběla."],
+    ["2883/2", 146, "ostatní plocha", ""],
+    ["2952/1", 6647, "ostatní plocha", ""],
+    ["3008", 841, "ostatní plocha", "Dokumentace uvádí 841 m², skutečná žádost 843 m². Rozhodne údaj z katastru."],
+    ["3009", 123, "ostatní plocha", ""]
+  ],
+  objekty: [
+    ["SO 01", "Zastávka typ A (zázemí pro řidiče)", "zastavěná plocha 11,93 m², obestavěný prostor 38,8 m³, výška 3,25 m"],
+    ["IO 01", "Přípojka vodovodu", "délka 5,97 m, napojení na řad DN 100"],
+    ["IO 02", "Přípojka splaškové kanalizace", "délka 6,5 m, napojení na stoku DN 300"]
+  ],
+  ucastnici: [
+    ["Dopravní podnik, a.s.", "stavebník", "žadatel"],
+    ["Statutární město", "vlastník pozemků", "MO"],
+    ["Městská část", "obec", "ok"],
+    ["Správce komunikací, a.s.", "správce pozemků a sítí", "ok"],
+    ["Vodárenská společnost, a.s.", "vlastník sítě", "ok"],
+    ["Distributor elektřiny, s.r.o.", "vlastník sítě", "ok"],
+    ["Operátor A, a.s.", "soused – síť", "ok"],
+    ["Distributor plynu, s.r.o.", "soused – síť", "ok"],
+    ["Správce veřejného osvětlení, a.s.", "soused – síť", "ok"],
+    ["Teplárenská společnost, a.s.", "soused – síť", "ok"],
+    ["Operátor B, a.s.", "soused – síť", "ok"]
+  ],
+  podminky: [
+    ["Magistrát, odbor investiční", "zn. V-01/2025", "14. 8. 2025"],
+    ["Úřad městské části", "zn. V-02/2025", "28. 7. 2025"],
+    ["Vodárenská společnost, a.s.", "zn. V-03/2025", "1. 7. 2025"],
+    ["Správce komunikací, a.s.", "zn. V-04/2025", "2. 7. 2025"],
+    ["Správce veřejného osvětlení, a.s.", "zn. V-05/2025", "26. 6. 2025"]
+  ]
+};
+const kc = n => n.toLocaleString("cs-CZ").replace(/ /g, " ") + " Kč";
+
+/* ===== Stav ===== */
+const S = { view: "stavebnik", law: "dnes", step: 0, logged: false, account: false, moFixed: false, pdfFixed: false, pay: "karta",
+            phase: "draft", /* draft → submitted → approved → final */ trackAt: 0, tab: "prehled", scanAt: -1 };
+let timers = [];
+const later = (fn, ms) => timers.push(setTimeout(fn, ms));
+const clearTimers = () => { timers.forEach(clearTimeout); timers = []; };
+const $ = s => document.querySelector(s);
+const app = $("#app");
+function toast(msg){ const t = $("#toast"); t.textContent = msg; t.hidden = false; clearTimeout(toast.t); toast.t = setTimeout(() => t.hidden = true, 3200); }
+
+/* ===== Stavebník ===== */
+const STEPS = ["Vyberu", "Nahraju dokumentaci", "Zkontroluju", "Zaplatím a odešlu"];
+function stepper(){
+  return `<ol class="steps">${STEPS.map((s,i)=>`<li class="${i<S.step?"done":i===S.step?"now":""}"><b>${i+1} / 4</b>${s}</li>`).join("")}</ol>`;
+}
+function vCatalog(){
+  const soon = [["Povolení záměru", "Standardní řízení s účastníky, kteří souhlas nedali."],["Kolaudace","Kolaudační rozhodnutí k dokončené stavbě."],["Změna záměru před dokončením","Úprava už povolené stavby."],["Povolení odstranění stavby","Demolice a odstranění zařízení."]];
+  return `
+  <section class="hero">
+    <div>
+      <h1>Povolení stavby objednáte jako zboží v e-shopu</h1>
+      <p>Nahrajete dokumentaci, systém z ní sám sestaví žádost. Vy jen zkontrolujete, zaplatíte a odešlete. Formulář nevyplňujete.</p>
+    </div>
+    <div class="how"><span><b>1</b>Vyberu</span><span><b>2</b>Nahraju dokumentaci</span><span><b>3</b>Zkontroluju</span><span><b>4</b>Zaplatím a odešlu</span></div>
+  </section>
+  <div class="cat">
+    <article class="card prod live">
+      <span class="pill ok">Dostupné</span>
+      <h3>Povolení záměru ve zrychleném řízení</h3>
+      <p class="small muted">Máte souhlasy všech účastníků a stavba nepotřebuje EIA ani výjimku z ochrany přírody.</p>
+      <div class="price num">od ${kc(C.poplatek).replace(" Kč","")} <span class="small muted">Kč · podle druhu stavby</span></div>
+      <div class="row">
+        <button class="btn pri" data-act="order">Objednat</button>
+        <span class="small muted">${S.law==="cil"?"rozhodnutí obvykle do 10 minut":"rozhodnutí obvykle do 1 pracovního dne"}</span>
+      </div>
+    </article>
+    ${soon.map(([n,d])=>`<article class="card prod soon"><span class="pill idle">Připravujeme</span><h3>${n}</h3><p class="small muted">${d}</p></article>`).join("")}
+  </div>
+  <p class="small muted" style="margin-top:18px">Přihlášení není potřeba. Kdo jste, vyčte systém z dokumentace a účet vám nabídne sám. ${S.logged?"":`<button class="btn link" data-act="login">Přesto se přihlásit</button>`}</p>`;
+}
+const SCAN = [
+  ["Rozbaluji balíček", "70 souborů, 30 MB · formát Portálu stavebníka (BPP 1.0.3)"],
+  ["Třídím dokumentaci", "A průvodní list · B souhrnná zpráva · C 3 situace · D 20 výkresů a zpráv · 42 dokladů"],
+  ["Kontroluji formát a autorizaci souborů", "PDF/A-3, elektronické autorizační razítko, časové razítko · žádný ze 67 souborů není PDF/A"],
+  ["Čtu skeny a převádím doklady", "33 ze 42 dokladů nemá textovou vrstvu · doplňuji text a ukládám jako PDF/A-3"],
+  ["Vyčítám údaje o stavbě a osobách", "název, pozemky, objekty, stavebník, zástupce, projektant"],
+  ["Ověřuji v registrech", "ARES, katastr nemovitostí, RÚIAN, seznam autorizovaných osob"],
+  ["Určuji účastníky řízení", "11 účastníků z katastru a z průběhu sítí"],
+  ["Páruji vyjádření a souhlasy", "ke každému účastníkovi a dotčenému orgánu hledám doklad"],
+  ["Sestavuji žádost", "hotovo"]
+];
+function vUpload(){
+  if (S.scanAt < 0) return stepper() + `
+    <div class="stack">
+      <div><h2>Nahrajte dokumentaci</h2><p class="muted">Celou složku nebo ZIP tak, jak ji dostanete od projektanta. Roztřídíme ji sami.</p></div>
+      <div class="drop" id="drop">
+        <p style="font-weight:600;font-size:17px">Přetáhněte sem soubory</p>
+        <p class="muted small" style="margin:6px 0 16px">PDF, ZIP, balíček z Portálu stavebníka, výkresy, skeny vyjádření</p>
+        <div class="row" style="justify-content:center">
+          <label class="btn" for="file">Vybrat soubory</label><input id="file" type="file" multiple hidden>
+          <button class="btn brand" data-act="demo">Použít ukázkovou dokumentaci</button>
+        </div>
+      </div>
+      <p class="small muted">Ukázka vychází ze skutečné dokumentace zázemí pro řidiče MHD; osoby, firmy a místo jsou anonymizované. Vlastní soubory prototyp přijme, ale analýzu předvede na ukázce.</p>
+    </div>`;
+  return stepper() + `
+    <div class="card stack" style="max-width:720px">
+      <h2>${S.scanAt >= SCAN.length ? "Žádost je sestavená" : "Čtu vaši dokumentaci"}</h2>
+      <ul class="scan">${SCAN.map(([a,b],i)=>`<li class="${i<S.scanAt?"done":i===S.scanAt?"run":""}"><span class="dot"></span><span>${a}${i<=S.scanAt?` <span class="small muted">· ${b}</span>`:""}</span></li>`).join("")}</ul>
+      ${S.scanAt >= SCAN.length ? `<div class="row"><button class="btn pri big" data-act="toReview">Zkontrolovat žádost</button></div>` : ""}
+    </div>`;
+}
+function checks(){
+  return [
+    ["ok","Obec má územní plán","územní plán města, účinný od 31. 1. 2025"],
+    ["ok","Nejde o záměr EIA","podle druhu a rozsahu stavby"],
+    ["ok","Není potřeba výjimka z ochrany přírody ani JES","sdělení odboru životního prostředí z 15. 7. 2025"],
+    ["ok","Dokumentace je úplná","části A–D, 25 souborů"],
+    [S.pdfFixed?"ok":"warn","Formát PDF/A-3", S.pdfFixed?"25 z 25 souborů dokumentace, doklady převedl systém":"0 z 25 souborů dokumentace, zatím jen upozornění"],
+    ["ok","Autorizační razítko a časové razítko","25 z 25 souborů nese el. podpis s časovým razítkem"],
+    ["ok","Závazná stanoviska jsou souhlasná","Ministerstvo obrany, krajská hygienická stanice"],
+    ["ok","Zastoupení je doložené","plná moc stavebníka pro projekční kancelář"],
+    [S.moFixed?"ok":"bad","Souhlas vlastníka pozemků", S.moFixed?"digitální souhlas statutárního města, vázaný na výkres C.3":"vyjádření majetkového odboru ze 4. 8. 2025 je podmíněné"],
+    ["ok","Souhlasy ostatních účastníků","9 z 9 na situačním výkresu"],
+    ["warn","Stáří vyjádření správců sítí","6 vyjádření je z roku 2024, ověřte platnost"]
+  ];
+}
+function vReview(){
+  const ch = checks(), okN = ch.filter(c=>c[0]!=="bad").length, ready = S.moFixed;
+  return stepper() + `
+  <div class="grid2">
+    <div class="stack">
+      <div><h2>Zkontrolujte, co jsme vyčetli</h2><p class="muted">U každého údaje vidíte, odkud je. Opravte jen to, co nesedí.</p></div>
+
+      ${S.moFixed ? `<div class="issue fixed"><b>Souhlas vlastníka pozemků doplněn.</b> Statutární město potvrdilo souhlas elektronicky nad výkresem C.3. <span class="small muted">(simulace)</span></div>`
+      : `<div class="issue stack" style="gap:10px">
+          <div><b>Jedna věc brání odeslání: chybí platný souhlas vlastníka pozemků.</b><br>
+          Všech 6 pozemků vlastní statutární město. Doložené vyjádření Majetkového odboru ze 4. 8. 2025 je vázané na podmínku, takže jako souhlas nestačí.</div>
+          <div class="row"><button class="btn pri" data-act="askMO">Požádat vlastníka o souhlas online</button><button class="btn" data-act="uploadMO">Nahrát souhlas, který už mám</button></div>
+          <span class="small muted">Ve skutečném řízení tento doklad chyběl také. Stavebník ho doplnil datovou schránkou až 70 dní po podání.</span>
+        </div>`}
+
+      ${S.pdfFixed ? `<div class="issue fixed"><b>Dokumentace je ve formátu PDF/A-3.</b> Projektant nahrál 25 opravených souborů, razítka i časová razítka jsou platná. <span class="small muted">(simulace)</span></div>`
+      : `<div class="issue soft stack" style="gap:10px">
+          <div><b>Upozornění: dokumentace není ve formátu PDF/A-3.</b><br>
+          Žádný z 25 souborů dokumentace se nehlásí jako PDF/A. Odeslání to zatím nebrání. Převést je za vás nemůžeme, protože převod by zneplatnil razítko projektanta.</div>
+          <div class="row"><button class="btn" data-act="askPdf">Poslat projektantovi odkaz k opravě</button><button class="btn" data-act="uploadPdf">Nahrát opravené soubory</button></div>
+          <span class="small muted">Kontrola formátu a razítek běží ve zkušebním režimu: zaznamenává nálezy, ale neblokuje. Doklady (42 souborů) převádí do PDF/A-3 systém sám.</span>
+        </div>`}
+
+      <section class="card">
+        <div class="sec-h"><h3>Formát a autorizace souborů</h3><span class="pill ${S.pdfFixed?"ok":"warn"}">${S.pdfFixed?"V souladu s vyhláškou":"25 nálezů, neblokuje"}</span></div>
+        <div class="tblwrap"><table>
+          <tr><th>Část</th><th class="r">Souborů</th><th>PDF/A-3</th><th>Autorizační razítko</th><th>Časové razítko</th></tr>
+          ${[["A Průvodní list",1,0],["B Souhrnná technická zpráva",1,0],["C Situační výkresy",3,1],["D Dokumentace objektů",20,1]].map(r=>`<tr><td>${r[0]}</td><td class="r num">${r[1]}</td><td>${S.pdfFixed?`<span class="pill ok">${r[1]} z ${r[1]}</span>`:`<span class="pill warn">0 z ${r[1]}</span>`}</td><td><span class="pill ok">${r[1]} z ${r[1]}</span></td><td><span class="pill ok">${r[1]} z ${r[1]}</span>${r[2]?"":` <span class="small muted">nepovinné</span>`}</td></tr>`).join("")}
+          <tr><td>Doklady</td><td class="r num">42</td><td><span class="pill info">převedl systém</span></td><td><span class="pill idle">nevyžaduje se</span></td><td><span class="pill idle">nevyžaduje se</span></td></tr>
+        </table></div>
+        <p class="small muted" style="margin-top:10px">Kontroluje se deklarace PDF/A v metadatech, platnost podpisu a certifikátu, oprávnění autorizované osoby v seznamu komory a časové razítko. Pravidla jsou nastavitelná pro každou část dokumentace a každé lze přepnout z upozornění na blokující.</p>
+      </section>
+
+      <section class="card">
+        <div class="sec-h"><h3>Stavba</h3><span class="pill ok">Vyčteno</span></div>
+        <dl class="kv">
+          <dt>Název</dt><dd>${C.nazev} <span class="src">A.pdf s. 1</span></dd>
+          <dt>Co stavíte</dt><dd>${C.popis} <span class="src">A.pdf s. 1</span></dd>
+          <dt>Místo</dt><dd>statutární město, k. ú. a ulice anonymizovány <span class="src">A.pdf · RÚIAN</span></dd>
+          <dt>Druh stavby</dt><dd>novostavba, stavba dráhy (zázemí trolejbusové trati) <span class="src">B.pdf</span></dd>
+          <dt>Příslušný úřad</dt><dd>Dopravní a energetický stavební úřad, Odbor staveb drah <span class="pill info">určeno automaticky</span></dd>
+          <dt>Termíny</dt><dd><label class="small muted" for="d1">zahájení</label><input id="d1" type="date" value="2026-07-01"><label class="small muted" for="d2">dokončení</label><input id="d2" type="date" value="2026-09-15"><span class="src">návrh, upravte</span></dd>
+        </dl>
+      </section>
+
+      <section class="card">
+        <div class="sec-h"><h3>Kdo žádá</h3><span class="pill ok">Ověřeno v registrech</span></div>
+        <dl class="kv">
+          <dt>Stavebník</dt><dd>Dopravní podnik, a.s., IČO 00000001 <span class="src">A.pdf · ARES</span></dd>
+          <dt>Zastupuje</dt><dd>Projekční kancelář, s.r.o., IČO 00000002 <span class="src">plná moc · ARES</span></dd>
+          <dt>Hlavní projektant</dt><dd>Ing. arch. Jan Vzorový, ČKA 00000 <span class="src">A.pdf s. 2 · seznam ČKA</span></dd>
+          <dt>Stavební podnikatel</dt><dd>Stavební firma, s.r.o., IČO 00000003 <span class="src">ARES</span></dd>
+        </dl>
+        ${S.logged||S.account ? `<p class="small" style="margin-top:12px"><span class="pill ok">Účet</span> Žádost je uložená v účtu Projekční kancelář, s.r.o.</p>`
+          : `<div class="row" style="margin-top:14px;padding-top:12px;border-top:1px solid var(--line)"><span class="small">Poznali jsme vás z dokumentace. Chcete účet, abyste řízení mohli sledovat a příště nic nevyplňovali?</span><button class="btn" data-act="mkAccount">Vytvořit účet pro Projekční kancelář, s.r.o.</button></div>`}
+      </section>
+
+      <section class="card">
+        <div class="sec-h"><h3>Pozemky <span class="muted small">6 · vlastník statutární město</span></h3><span class="pill warn">2 nálezy</span></div>
+        <div class="tblwrap"><table>
+          <tr><th>Parcela</th><th class="r">Výměra</th><th>Druh</th><th>Poznámka systému</th></tr>
+          ${C.pozemky.map(p=>`<tr><td class="mono">${p[0]}</td><td class="r num">${p[1].toLocaleString("cs-CZ")} m²</td><td>${p[2]}</td><td class="small">${p[3]?`<span class="pill warn">Nález</span> ${p[3]}`:`<span class="muted">bez nálezu</span>`}</td></tr>`).join("")}
+        </table></div>
+      </section>
+
+      <section class="card">
+        <div class="sec-h"><h3>Stavební objekty</h3><span class="pill ok">Vyčteno</span></div>
+        <div class="tblwrap"><table>
+          ${C.objekty.map(o=>`<tr><td class="mono">${o[0]}</td><td><b>${o[1]}</b><br><span class="small muted">${o[2]}</span></td><td><span class="src">B.pdf · D</span></td></tr>`).join("")}
+        </table></div>
+      </section>
+
+      <section class="card">
+        <div class="sec-h"><h3>Účastníci řízení a jejich souhlasy <span class="muted small">11</span></h3><span class="pill ${S.moFixed?"ok":"bad"}">${S.moFixed?"11 z 11":"10 z 11"}</span></div>
+        <div class="tblwrap"><table>
+          <tr><th>Účastník</th><th>Proč</th><th>Souhlas</th></tr>
+          ${C.ucastnici.map(u=>`<tr><td>${u[0]}</td><td class="small muted">${u[1]}</td><td>${u[2]==="žadatel"?`<span class="pill idle">žadatel</span>`:u[2]==="MO"&&!S.moFixed?`<span class="pill bad">chybí</span>`:`<span class="pill ok">doložen</span>`}</td></tr>`).join("")}
+        </table></div>
+        <p class="small muted" style="margin-top:10px">Okruh účastníků systém odvodil z vlastnictví pozemků v katastru a ze sítí, které stavba kříží nebo se k nim blíží.</p>
+      </section>
+
+      <section class="card">
+        <div class="sec-h"><h3>Doklady <span class="muted small">42 souborů</span></h3><span class="pill warn">6 starších vyjádření</span></div>
+        <p class="small">2 závazná stanoviska, vyjádření a sdělení úřadů města a státu a vyjádření zhruba 25 správců sítí. Podmínky, které z nich plynou pro stavbu, systém převezme do rozhodnutí odkazem.</p>
+        <div class="issue soft small" style="margin-top:12px">Šest vyjádření správců sítí je z léta 2024. Odeslání to nebrání, před zahájením stavby je ale budete muset obnovit.</div>
+      </section>
+    </div>
+
+    <aside class="card cart stack">
+      <h3>Vaše objednávka</h3>
+      <div><b>Povolení záměru ve zrychleném řízení</b><br><span class="small muted">${C.nazev}</span></div>
+      <div>
+        <div class="row" style="justify-content:space-between"><span class="small">Kontroly</span><span class="small num"><b>${okN} z ${ch.length}</b></span></div>
+        <div class="meter"><i style="width:${okN/ch.length*100}%"></i></div>
+      </div>
+      <ul class="scan small" style="gap:5px">${ch.map(c=>`<li class="done" style="color:var(--ink)"><span class="pill ${c[0]}" style="padding:0;background:none"></span><span>${c[1]}<br><span class="muted">${c[2]}</span></span></li>`).join("")}</ul>
+      <div class="tot"><span>Správní poplatek</span><b class="num">${kc(C.poplatek)}</b></div>
+      <button class="btn pri big" data-act="toPay" ${ready?"":"disabled"}>Pokračovat k platbě</button>
+      ${ready?"":`<span class="small muted">Nejdřív doplňte souhlas vlastníka pozemků.</span>`}
+    </aside>
+  </div>`;
+}
+function vPay(){
+  const m = [["karta","Kartou, Apple Pay, Google Pay","Žádost odejde okamžitě."],["qr","QR platbou z bankovní aplikace","Okamžitá platba, žádost odejde do minuty."],["faktura","Převodem na výzvu","Pro firmy s vlastním schvalováním plateb. Žádost odejde po připsání."],["kredit","Z kreditu organizace","Pro velké investory, kteří podávají často."]];
+  return stepper() + `
+  <div class="grid2">
+    <div class="stack">
+      <div><h2>Zaplaťte a odešlete</h2><p class="muted">Poplatek platíte hned. Úřad vám kvůli němu už nepíše výzvu a vy nečekáte na její doručení.</p></div>
+      <div class="pay" role="radiogroup" aria-label="Způsob platby">
+        ${m.map(([k,n,d])=>`<label><input type="radio" name="pay" id="pay-${k}" value="${k}" ${S.pay===k?"checked":""}><span><b>${n}</b><br><span class="small muted">${d}</span></span></label>`).join("")}
+      </div>
+      <div class="card small">
+        <b>Odesláním potvrzujete</b>
+        <ul style="margin:6px 0 0;padding-left:18px">
+          <li>že žádost odpovídá nahrané dokumentaci,</li>
+          <li>že chcete písemnosti dostávat do účtu řízení${S.law==="cil"?" (doručeno je okamžikem zpřístupnění)":" a souběžně do datové schránky"}.</li>
+        </ul>
+      </div>
+    </div>
+    <aside class="card cart stack">
+      <h3>Shrnutí</h3>
+      <dl class="kv" style="grid-template-columns:110px minmax(0,1fr)">
+        <dt>Co</dt><dd>Povolení záměru ve zrychleném řízení</dd>
+        <dt>Stavba</dt><dd>${C.nazev}</dd>
+        <dt>Žadatel</dt><dd>Dopravní podnik, a.s., v zast. Projekční kancelář, s.r.o.</dd>
+        <dt>Přílohy</dt><dd>70 souborů, otisk balíčku uložen</dd>
+      </dl>
+      <div class="tot"><span>K úhradě</span><b class="num">${kc(C.poplatek)}</b></div>
+      <button class="btn pri big" data-act="submit">Zaplatit a odeslat žádost</button>
+      <button class="btn link small" data-act="back">Zpět ke kontrole</button>
+    </aside>
+  </div>`;
+}
+function trackSteps(){
+  const cil = S.law === "cil";
+  const a = [
+    ["Žádost přijata, poplatek uhrazen", "systém", "0:00"],
+    ["Spis založen, přiděleno číslo jednací", "systém", "0:01"],
+    ["Žádost a dokumentace zkontrolovány", "systém · 11 kontrol", "0:03"],
+    ["Účastníci řízení ověřeni v katastru k dnešnímu dni", "systém", "0:04"],
+    ["Návrh rozhodnutí sestaven", "systém", "0:06"],
+    cil ? ["Rozhodnutí vydáno automaticky", "systém · úředník kontroluje vzorek", "0:06"]
+        : ["Rozhodnutí schváleno a podepsáno", "oprávněná úřední osoba", "čeká na úředníka"],
+    cil ? ["Doručeno všem 11 účastníkům zpřístupněním v účtu řízení", "systém", "0:06"]
+        : ["Doručeno 11 účastníkům do účtu řízení a datových schránek", "systém", "po schválení"],
+    cil ? ["Právní moc", "souhlas se záměrem zahrnuje vzdání se odvolání", "0:06"]
+        : ["Právní moc", "po vzdání se odvolání všemi účastníky, jinak po 15 dnech", "po doručení"],
+    ["Ověřená dokumentace a štítek Stavba povolena ke stažení", "systém", cil ? "0:07" : "ihned po právní moci"]
+  ];
+  return a;
+}
+function trackLimit(){ // kolik kroků je hotovo
+  if (S.law === "cil") return 9;
+  return S.phase === "final" ? 9 : S.phase === "approved" ? 7 : 5;
+}
+function vTrack(){
+  const st = trackSteps(), lim = Math.min(S.trackAt, trackLimit()), done = lim >= 9;
+  return `
+  <div class="grid2">
+    <div class="stack">
+      <div>
+        <span class="pill ${done?"ok":"info"}">${done?"Stavba povolena":"Řízení běží"}</span>
+        <h2 style="margin-top:8px">${done?"Hotovo. Můžete stavět.":"Děkujeme, žádost je podaná"}</h2>
+        <p class="muted">Řízení <span class="mono">R/2026/00001</span> · ${C.nazev}</p>
+      </div>
+      <div class="card">
+        <ol class="track">${st.map((s,i)=>`<li class="${i<lim?"done":i===lim?"now":"todo"}"><span class="b"></span><span><b>${s[0]}</b><br><span class="who">${s[1]}</span></span><span class="t">${i<lim?s[2]:i===lim?s[2]:""}</span></li>`).join("")}</ol>
+      </div>
+      ${!done && S.law==="dnes" && lim>=5 && S.phase==="submitted" ? `<div class="issue soft">Teď je na řadě úředník: má před sebou hotový návrh rozhodnutí a jediné tlačítko. <button class="btn link" data-act="goUrad">Přepnout na pohled úřadu</button></div>`:""}
+      ${done ? `<div class="card stack"><h3>Vaše dokumenty</h3>
+        <div class="tblwrap"><table>
+          <tr><td>Rozhodnutí o povolení stavby s doložkou právní moci</td><td><span class="pill ok">elektronická pečeť</span></td></tr>
+          <tr><td>Ověřená projektová dokumentace</td><td><span class="pill ok">elektronická pečeť</span></td></tr>
+          <tr><td>Štítek Stavba povolena s QR kódem na rozhodnutí</td><td><span class="pill ok">k vytištění</span></td></tr>
+        </table></div>
+        <p class="small muted">V prototypu se soubory nestahují.</p></div>`:""}
+    </div>
+    <aside class="card stack">
+      <h3>Jak to proběhlo doopravdy</h3>
+      <p class="small">Stejná žádost, podaná 31. 3. 2026, nabyla právní moci 17. 7. 2026.</p>
+      <div class="kpis" style="grid-template-columns:1fr 1fr">
+        <div class="kpi"><b class="num">108 dní</b><span class="small muted">skutečný spis</span></div>
+        <div class="kpi"><b class="num">${S.law==="cil"?"7 minut":"1–2 dny"}</b><span class="small muted">${S.law==="cil"?"cílový stav, odhad":"dnešní zákony, odhad"}</span></div>
+      </div>
+      <button class="btn" data-act="goKoncept">Kde se těch 108 dní ztratilo</button>
+      <button class="btn link small" data-act="restart">Začít znovu od začátku</button>
+    </aside>
+  </div>`;
+}
+function vStavebnik(){
+  if (S.phase !== "draft") return vTrack();
+  return [vCatalog, vUpload, vReview, vPay][S.step]();
+}
+
+/* ===== Úřad ===== */
+function officeStatus(){
+  if (S.law === "cil") return ["ok","Vydáno automaticky"];
+  return S.phase === "final" ? ["ok","Pravomocné"] : S.phase === "approved" ? ["info","Doručuje se"] : ["warn","Čeká na váš podpis"];
+}
+function vUrad(){
+  const st = officeStatus(), cil = S.law === "cil";
+  const tabs = [["prehled","Přehled"],["rozhodnuti","Návrh rozhodnutí"],["doruceni","Účastníci a doručení"],["spis","Spis"]];
+  return `
+  <div class="stack" style="gap:20px">
+    <div class="row" style="justify-content:space-between">
+      <div><h1 style="font-size:28px">Odbor staveb drah</h1><p class="muted">${cil?"Systém rozhoduje sám tam, kde není co uvažovat. Vy řešíte výjimky a kontrolujete vzorek.":"Systém připraví všechno, vy rozhodujete a podepisujete."}</p></div>
+    </div>
+    <div class="kpis">
+      <div class="card kpi"><b class="num">${cil?"0":S.phase==="submitted"||S.phase==="draft"?"1":"0"}</b><span class="small muted">čeká na váš podpis</span></div>
+      <div class="card kpi"><b class="num">1</b><span class="small muted">vyžaduje vaše uvážení</span></div>
+      <div class="card kpi"><b class="num">11 z 11</b><span class="small muted">kontrol u otevřené žádosti bez překážky</span></div>
+      <div class="card kpi"><b class="num">0</b><span class="small muted">ručně psaných písemností</span></div>
+    </div>
+    <div class="office">
+      <div class="q" aria-label="Fronta">
+        <button aria-current="true"><span class="row" style="justify-content:space-between"><span class="mono small">R/2026/00001</span><span class="pill ${st[0]}">${st[1]}</span></span><b>${C.nazev}</b><span class="small muted">zrychlené řízení · Dopravní podnik, a.s.</span></button>
+        <button class="fake" tabindex="-1"><span class="row" style="justify-content:space-between"><span class="mono small">ukázka</span><span class="pill bad">Vyžaduje uvážení</span></span><b>Měnírna, přístavba skladu</b><span class="small muted">systém našel rozpor s územním plánem</span></button>
+        <button class="fake" tabindex="-1"><span class="row" style="justify-content:space-between"><span class="mono small">ukázka</span><span class="pill info">Čeká na stavebníka</span></span><b>Zastávka, přístřešek</b><span class="small muted">chybí souhlas 1 účastníka, stavebník upozorněn</span></button>
+        <p class="small muted">Řádky označené ukázka jsou smyšlené, jen ukazují další stavy fronty.</p>
+      </div>
+      <div class="stack">
+        <div class="tabs" role="tablist">${tabs.map(([k,n])=>`<button role="tab" data-tab="${k}" aria-selected="${S.tab===k}">${n}</button>`).join("")}</div>
+        ${{prehled:oPrehled, rozhodnuti:oRozhodnuti, doruceni:oDoruceni, spis:oSpis}[S.tab]()}
+      </div>
+    </div>
+  </div>`;
+}
+function approveBox(){
+  const cil = S.law === "cil";
+  if (cil) return `<div class="approve stack" style="border-color:var(--ok)"><div class="row"><span class="pill ok">Vydáno automaticky</span><b>Žádná z 11 kontrol neblokuje, správní uvážení nebylo potřeba.</b></div><p class="small">Rozhodnutí vydal systém 6 minut po podání. Tento případ padl do kontrolního vzorku: projděte návrh a potvrďte, nebo zahajte přezkum.</p><div class="row"><button class="btn brand" data-act="audit">Potvrdit kontrolu vzorku</button><button class="btn" data-act="review">Zahájit přezkum</button></div></div>`;
+  if (S.phase === "final") return `<div class="approve stack" style="border-color:var(--ok)"><div class="row"><span class="pill ok">Pravomocné</span><b>Řízení je skončené.</b></div><p class="small">Doložku právní moci, ověřenou dokumentaci a štítek systém vyhotovil a doručil sám. Spis je uzavřený.</p></div>`;
+  if (S.phase === "approved") return `<div class="approve stack" style="border-color:var(--info)"><div class="row"><span class="pill info">Doručuje se</span><b>Podepsáno. Dál už nic nedělejte.</b></div><p class="small">Systém doručuje účastníkům a sbírá vzdání se odvolání. Průběh je na kartě Účastníci a doručení.</p></div>`;
+  return `<div class="approve stack">
+    <div class="row"><span class="pill warn">Čeká na váš podpis</span><b>Návrh rozhodnutí je připravený.</b></div>
+    <p class="small">Systém ověřil žádost, okruh účastníků, souhlasy i soulad s územním plánem a sestavil rozhodnutí. Zbývá vaše posouzení a podpis.</p>
+    <div class="row"><button class="btn pri big" data-act="approve">Schválit, podepsat a doručit</button><button class="btn" data-tab="rozhodnuti">Přečíst návrh</button><button class="btn" data-act="returnIt">Vrátit stavebníkovi</button></div>
+  </div>`;
+}
+function oPrehled(){
+  const log = [
+    ["0:00","Podání přijato, poplatek 19 000 Kč spárován s platbou","platební brána"],
+    ["0:01","Určena příslušnost: stavba dráhy, Odbor staveb drah","pravidla příslušnosti"],
+    ["0:01","Založen spis, přiděleno číslo jednací, potvrzení přijetí odesláno stavebníkovi","spisová služba"],
+    ["0:02","Zastoupení ověřeno: plná moc stavebníka, oprávnění podepsaných osob podle obchodního rejstříku","ARES"],
+    ["0:03","Dokumentace úplná, 70 souborů, otisky souhlasí s manifestem balíčku","balíček BPP"],
+    ["0:03","Formát a autorizace: razítka a časová razítka přítomna, formát PDF/A-3 zaznamenán jako upozornění","validátor PDF a podpisů"],
+    ["0:03","Hlavní projektant je autorizovaná osoba vedená v seznamu ČKA","seznam ČKA"],
+    ["0:04","Vlastnictví 6 pozemků ověřeno k dnešnímu dni, vlastník statutární město","katastr"],
+    ["0:04","Okruh účastníků: 11, všichni mají doložený souhlas","katastr · sítě"],
+    ["0:05","Soulad s územním plánem: plochy PU a BU, stavba dopravní infrastruktury je přípustná","územní plán města"],
+    ["0:05","Podmínky z vyjádření převzaty do rozhodnutí odkazem","doklady"],
+    ["0:06","Návrh rozhodnutí sestaven","šablona zrychleného řízení"]
+  ];
+  return `${approveBox()}
+  <div class="card">
+    <div class="sec-h"><h3>Co systém udělal sám</h3><span class="small muted">12 úkonů za 6 minut</span></div>
+    <ul class="log">${log.map(l=>`<li><span class="mono muted">${l[0]}</span><span>${l[1]}</span><span class="src">${l[2]}</span></li>`).join("")}</ul>
+  </div>
+  <div class="card">
+    <div class="sec-h"><h3>Na co se podívejte vy</h3><span class="pill warn">2 upozornění</span></div>
+    <p class="small"><b>Šest vyjádření správců sítí je z roku 2024.</b> Systém je do rozhodnutí převzal a stavebníkovi uložil podmínku ověřit jejich platnost před zahájením prací. Pokud chcete jiné řešení, vraťte žádost stavebníkovi.</p>
+    <p class="small" style="margin-top:8px"><b>Dokumentace není ve formátu PDF/A-3.</b> Kontrola formátu a razítek zatím jen zaznamenává nálezy. Stavebník i projektant o nálezu vědí.</p>
+  </div>`;
+}
+function oRozhodnuti(){
+  return `<p class="small muted">Modře podbarvené části doplnil systém z dat žádosti. Pevný text je šablona zrychleného řízení. Celý dokument má 2 strany, původní rozhodnutí jich mělo přes 12.</p>
+  <div class="doc">
+    <p class="small muted">Dopravní a energetický stavební úřad · Odbor staveb drah<br>Sp. zn. a č. j. přidělila spisová služba · Záměr <span class="gen">Z/2026/00001</span></p>
+    <h4>ROZHODNUTÍ</h4><p style="text-align:center"><b>POVOLENÍ STAVBY</b></p>
+    <p>Stavební úřad v řízení o povolení záměru ve zrychleném řízení přezkoumal žádost, kterou podal <span class="gen">Dopravní podnik, a.s., IČO 00000001, zastoupený Projekční kancelář, s.r.o., IČO 00000002</span>, a podle § 195, 197, 211 a 212 stavebního zákona <b>povoluje</b> stavbu dráhy</p>
+    <p style="text-align:center"><b><span class="gen">${C.nazev}</span></b></p>
+    <p>v rozsahu: <span class="gen">SO 01 Zastávka typ A (zázemí pro řidiče), IO 01 Přípojka vodovodu, IO 02 Přípojka splaškové kanalizace</span>, na pozemcích parc. č. <span class="gen">2882/1, 2883/1, 2883/2, 2952/1, 3008, 3009</span>.</p>
+    <p><b>Podmínky</b></p>
+    <ol>
+      <li>Stavba bude provedena podle ověřené dokumentace, kterou vypracoval <span class="gen">Ing. arch. Jan Vzorový (ČKA 00000)</span>, a umístěna podle výkresu <span class="gen">C.3</span>.</li>
+      <li>Stavebník splní podmínky těchto vyjádření, která jsou přílohou rozhodnutí:
+        <ul>${C.podminky.map(p=>`<li><span class="gen">${p[0]}, ${p[1]} ze dne ${p[2]}</span></li>`).join("")}</ul></li>
+      <li>Před zahájením prací stavebník ověří platnost vyjádření správců sítí vydaných v roce 2024.</li>
+      <li>Stavbu lze užívat jen na základě kolaudačního rozhodnutí.</li>
+    </ol>
+    <p><b>Účastníci řízení:</b> <span class="gen">${C.ucastnici.map(u=>u[0]).join("; ")}</span>.</p>
+    <p><b>Odůvodnění.</b> Podmínky zrychleného řízení jsou splněny: <span class="gen">obec má územní plán, nejde o záměr EIA, není třeba výjimka podle zákona o ochraně přírody a krajiny, všichni účastníci se záměrem souhlasili</span>. Záměr je v souladu s <span class="gen">územním plánem města (plochy PU a BU)</span>. Protokol o 11 provedených kontrolách s odkazy na zdroje je součástí spisu.</p>
+    <p><b>Poučení.</b> Proti rozhodnutí lze podat odvolání do 15 dnů od doručení. Účastník se může práva na odvolání vzdát jedním potvrzením v účtu řízení.</p>
+  </div>`;
+}
+function oDoruceni(){
+  const cil = S.law === "cil", sent = cil || S.phase === "approved" || S.phase === "final", fin = cil || S.phase === "final";
+  return `<div class="card">
+    <div class="sec-h"><h3>Doručení rozhodnutí</h3><span class="pill ${fin?"ok":sent?"info":"idle"}">${fin?"Pravomocné":sent?"Doručeno, běží lhůta":"Po podpisu"}</span></div>
+    <p class="small muted" style="margin-bottom:10px">${cil?"Doručuje se zpřístupněním v účtu řízení. Účastník dostane upozornění do datové schránky, e-mailem i SMS. Souhlas se záměrem zahrnoval vzdání se odvolání, právní moc tedy nastává doručením."
+      :"Každý účastník má písemnost v účtu řízení a souběžně v datové schránce. V účtu má tlačítko Vzdávám se odvolání. Jakmile ho stisknou všichni, rozhodnutí je pravomocné týž den."}</p>
+    <div class="tblwrap"><table>
+      <tr><th>Účastník</th><th>Doručeno</th><th>Odvolání</th></tr>
+      ${C.ucastnici.map(u=>`<tr><td>${u[0]}</td><td>${sent?`<span class="pill ok">doručeno</span>`:`<span class="pill idle">čeká</span>`}</td><td>${fin?`<span class="pill ok">${cil?"vzdal se souhlasem":"vzdal se"}</span>`:sent?`<span class="pill info">lhůta 15 dní</span>`:`<span class="pill idle">–</span>`}</td></tr>`).join("")}
+    </table></div>
+    ${!cil && S.phase==="approved" ? `<div class="row" style="margin-top:12px"><button class="btn brand" data-act="waive">Simulovat: všichni účastníci se vzdali odvolání</button><span class="small muted">Jinak právní moc nastane po 15 dnech.</span></div>`:""}
+  </div>`;
+}
+function oSpis(){
+  const cil = S.law === "cil", n = cil ? 5 : S.phase === "final" ? 5 : S.phase === "approved" ? 4 : 3;
+  const docs = [["1","Žádost o povolení záměru, strukturovaná data a 70 příloh","podání"],["2","Potvrzení přijetí a doklad o úhradě poplatku","vyhotovil systém"],["3","Protokol o kontrolách a určení účastníků","vyhotovil systém"],["4","Rozhodnutí – povolení stavby",cil?"vyhotovil systém":"podepsal úředník"],["5","Doložka právní moci, ověřená dokumentace, štítek","vyhotovil systém"]];
+  return `<div class="card">
+    <div class="sec-h"><h3>Spis vzniká sám</h3><span class="small muted">${n} z 5 dokumentů</span></div>
+    <div class="tblwrap"><table>
+      <tr><th>Č.</th><th>Dokument</th><th>Původ</th><th>Stav</th></tr>
+      ${docs.map((d,i)=>`<tr><td class="mono">${d[0]}</td><td>${d[1]}</td><td class="small muted">${d[2]}</td><td>${i<n?`<span class="pill ok">ve spisu</span>`:`<span class="pill idle">vznikne</span>`}</td></tr>`).join("")}
+    </table></div>
+    <p class="small muted" style="margin-top:10px">Skutečný spis měl 7 dokumentů. Odpadla výzva k zaplacení poplatku a doplnění žádosti, sdělení o právní moci a oznámení o ověření dokumentace se spojily do jednoho. Každý úkon se zapisuje jako událost, ze které se spis i transakční protokol generují a předávají do spisové služby.</p>
+  </div>`;
+}
+
+/* ===== Koncept ===== */
+function vKoncept(){
+  const seg = [[15,"Podání → potvrzení přijetí a založení spisu","#5b7c99"],[28,"Čekání na výzvu k zaplacení poplatku","#b3261e"],[27,"Čekání na doplnění chybějícího souhlasu vlastníka","#d9541a"],[20,"Posouzení a sepsání rozhodnutí","#0e5a52"],[18,"Doručení, úřední deska, odvolací lhůta","#8a5a9c"]];
+  const law = [
+    ["Žádost","Formulář se vyplňuje ručně vedle dokumentace a liší se od ní: chybí parcela 2883/1, jiná výměra parcely 3008.","Žádost vzniká z dokumentace. Stavebník ji jen potvrdí.","a","Nic. Strukturovaná žádost se vygeneruje do dnešního formátu."],
+    ["Formát a autorizace dokumentace","Žádný ze 68 PDF v balíčku se nehlásí jako PDF/A. 25 souborů dokumentace nese el. podpis s časovým razítkem, 42 dokladů nic. Podání přesto prošlo.","Kontrola PDF/A-3, autorizačního razítka a časového razítka hned při nahrání. Doklady převede systém, dokumentaci vrátí projektantovi jedním odkazem. Zpočátku jen upozorňuje, blokovat začne po vyladění pravidel.","a","Nic. Požadavky vyhlášky už platí, jen je nikdo strojově nevynucuje."],
+    ["Zastoupení","PDF plné moci, pověření a výpis z obchodního rejstříku v příloze.","Oprávnění jednat se ověří v registrech, plná moc je záznam v registru zastoupení.","b","Uznat zápis v registru jako průkaz zastoupení."],
+    ["Poplatek","Výzva 43 dní po podání, lhůta 15 dní, hrozba zastavení řízení.","Platí se při odeslání. Bez platby žádost neodejde.","a","Nic. Výzva odpadne, protože poplatek je uhrazen dřív, než řízení začne. Vyplatí se zakotvit splatnost při podání."],
+    ["Souhlas vlastníka a účastníků","Podpis na situačním výkresu, sken. Chyběl, doplněn po 70 dnech.","Digitální souhlas vázaný na otisk výkresu, udělený přes identitu občana nebo datovou schránku. Stavebník o něj požádá přímo z košíku.","b","Výslovně připustit elektronický souhlas vázaný na otisk dokumentace místo podpisu na výkresu."],
+    ["Vyjádření správců sítí a úřadů","42 PDF, z toho 33 skenů bez textu, každé v jiné podobě. Úředník opisuje podmínky do rozhodnutí.","Vyjádření jako data: kdo, k čemu, platnost, podmínky. Vydává se do registru, žádost na ně odkazuje.","c","Povinnost správců sítí a dotčených orgánů vydávat vyjádření strojově čitelně do společného registru."],
+    ["Okruh účastníků","Úředník nahlíží do katastru a posuzuje ručně.","Systém ho odvodí z katastru, RÚIAN a digitální technické mapy a zdůvodní.","a","Nic. Úředník okruh potvrzuje."],
+    ["Rozhodnutí","Přes 12 stran, z toho zhruba 5 stran opsaných podmínek.","Rozhodnutí jako data s čitelným zobrazením. Podmínky odkazem na vyjádření, odůvodnění protokolem kontrol.","b","Připustit podmínky a odůvodnění odkazem na přílohy a protokol."],
+    ["Kdo rozhoduje","Referent připraví, ředitelka podepíše.","Projdou-li všechny kontroly a není co uvažovat, rozhodnutí vydá systém. Úředník kontroluje vzorek a řeší výjimky.","c","Zmocnění k automatizovanému vydání rozhodnutí ve zrychleném řízení, s právem na přezkum člověkem."],
+    ["Doručování","17 datových zpráv a vyvěšení na úřední desce na 15 dní.","Doručení zpřístupněním v účtu řízení, upozornění do datové schránky, e-mailem a SMS. Fikce následující pracovní den.","c","Nový způsob doručení ve stavebním zákoně nebo správním řádu, kratší fikce pro účastníky, kteří se do řízení sami přihlásili."],
+    ["Právní moc","18 dní po vydání, přestože všichni účastníci předem souhlasili.","Hned: vzdání se odvolání jedním potvrzením v účtu.","a","Nic, správní řád vzdání se odvolání po oznámení rozhodnutí umožňuje. Chybí jen pohodlný kanál."],
+    ["Právní moc II","","Souhlas se záměrem ve zrychleném řízení znamená i vzdání se odvolání. Rozhodnutí je pravomocné doručením.","c","Doplnit účinky souhlasu ve zrychleném řízení."],
+    ["Doložka, ověřená dokumentace, štítek","Další 2 písemnosti a 5 datových zpráv 4 dny po právní moci.","Vzniknou samy v okamžiku právní moci, opatřené pečetí úřadu. Štítek nese QR kód na rozhodnutí.","a","Nic."],
+    ["Nečinnost","Mezi úkony uplynuly týdny.","Nevydá-li úřad rozhodnutí do stanovené lhůty a kontroly prošly, platí, že stavbu povolil.","c","Fikce povolení pro zrychlené řízení."]
+  ];
+  const lv = {a:["A","jde hned"],b:["B","drobná novela"],c:["C","odvážná změna"]};
+  return `
+  <div class="stack" style="gap:28px">
+    <div class="prose"><h1>Kde se ztratilo 108 dní a jak je vrátit</h1>
+    <p class="muted" style="margin-top:10px;font-size:16px">Rozbor skutečného spisu zrychleného řízení z roku 2026 na buňku pro řidiče o zastavěné ploše 11,93 m², a návrh, jak stejné řízení vést strojově.</p></div>
+
+    <section class="card stack">
+      <h2>Skutečný průběh: 31. 3. až 17. 7. 2026</h2>
+      <div class="bars" role="img" aria-label="Rozdělení 108 dní řízení na pět úseků">${seg.map(s=>`<div style="flex:${s[0]};background:${s[2]}" title="${s[1]}">${s[0]} d</div>`).join("")}</div>
+      <div class="legend">${seg.map(s=>`<span><i style="background:${s[2]}"></i><span><b class="num">${s[0]} dní</b> · ${s[1]}</span></span>`).join("")}</div>
+      <p class="small muted">Data úkonů podle spisu: podání 31. 3., přijetí potvrzeno 15. 4., výzva k poplatku 13. 5., doplnění 9. 6., rozhodnutí datováno 29. 6., právní moc 17. 7. Doložka a ověřená dokumentace odešly 21. 7. Spis neříká, proč mezi úkony uplynula právě tato doba.</p>
+      <div class="kpis">
+        <div class="kpi"><b class="num">7</b><span class="small muted">dokumentů ve spisu</span></div>
+        <div class="kpi"><b class="num">24</b><span class="small muted">odeslaných datových zpráv</span></div>
+        <div class="kpi"><b class="num">42</b><span class="small muted">dokladů, 33 jako sken</span></div>
+        <div class="kpi"><b class="num">0</b><span class="small muted">námitek a odvolání</span></div>
+      </div>
+      <p class="prose">Žádný z pěti úseků nevyplnila odborná práce, kterou by nezvládl stroj. Dva nejdelší, dohromady 55 dní, způsobila platba a jeden chybějící doklad. Obojí e-shop vyřeší před odesláním.</p>
+    </section>
+
+    <section class="stack">
+      <h2>Pět principů</h2>
+      <div class="arch">
+        <div class="card"><h3>Dokumentace je žádost</h3><p class="small">Stavebník nic nepřepisuje. Co jde vyčíst, systém vyčte a ukáže zdroj.</p></div>
+        <div class="card"><h3>Chyby se řeší před podáním</h3><p class="small">Výzva k doplnění je selhání návrhu. Neúplná žádost neodejde.</p></div>
+        <div class="card"><h3>Úředník rozhoduje, nepíše</h3><p class="small">Každou písemnost vyhotoví systém. Člověk posuzuje a nese odpovědnost.</p></div>
+        <div class="card"><h3>Spis je vedlejší produkt</h3><p class="small">Každý úkon je událost. Spis, protokol i statistika se z nich generují.</p></div>
+        <div class="card"><h3>Pravidla jsou data</h3><p class="small">Typ řízení je sada kontrol a šablon. Složitější řízení přibývají konfigurací.</p></div>
+      </div>
+    </section>
+
+    <section class="card stack">
+      <div class="sec-h"><h2>Co změnit a co k tomu potřebujete</h2>
+        <span class="row small"><span class="lvl a">A jde hned</span><span class="lvl b">B drobná novela</span><span class="lvl c">C odvážná změna</span></span></div>
+      <div class="tblwrap"><table>
+        <tr><th>Krok</th><th>Dnes ve spisu</th><th>Návrh</th><th>Úroveň</th><th>Co by se muselo změnit</th></tr>
+        ${law.map(l=>`<tr><td><b>${l[0]}</b></td><td class="small">${l[1]}</td><td class="small">${l[2]}</td><td><span class="lvl ${l[3]}">${lv[l[3]][0]}</span></td><td class="small">${l[4]}</td></tr>`).join("")}
+      </table></div>
+      <p class="small muted">Úrovně jsou můj odhad nad spisem a obecnou znalostí správního řádu a stavebního zákona. Než z nich vznikne legislativní návrh, potřebují prověřit právníkem, hlavně automatizované rozhodování (i s ohledem na GDPR u fyzických osob) a fikce.</p>
+      <p class="small">Přepínač <b>Právní režim</b> v horní liště ukazuje oba světy: <b>Dnešní zákony</b> využívají jen úroveň A, <b>Cílový stav</b> i B a C.</p>
+    </section>
+
+    <section class="stack">
+      <h2>Jak to postavit na GitHubu a Supabase</h2>
+      <div class="arch">
+        <div class="card"><h3>GitHub</h3><ul><li>Repozitář s aplikací, zatím statickou, hostovanou na GitHub Pages</li><li>Pravidla řízení a šablony písemností jako verzované soubory</li><li>GitHub Actions pro nasazení funkcí a migrací</li></ul></div>
+        <div class="card"><h3>Supabase databáze</h3><ul><li>Záměry, podání, osoby, pozemky, souhlasy, vyjádření s podmínkami</li><li>Tabulka událostí jako jediný zdroj pravdy o průběhu</li><li>Řádková oprávnění: stavebník, účastník, úředník</li></ul></div>
+        <div class="card"><h3>Supabase úložiště a funkce</h3><ul><li>Dokumentace v úložišti, u každého souboru otisk</li><li>Funkce: rozbalení balíčku, kontrola PDF/A a podpisů, čtení skenů, vytěžení údajů jazykovým modelem, kontroly, generování písemností</li><li>Realtime pro sledování řízení, plánovač pro lhůty</li></ul></div>
+        <div class="card"><h3>Napojení, postupně</h3><ul><li>Vstup: balíček Portálu stavebníka (BPP) umí přijmout hned</li><li>Registry: ARES, katastr, RÚIAN, digitální technická mapa</li><li>Úřad: spisová služba, VITA, datové schránky, platební brána, identita občana</li></ul></div>
+      </div>
+      <p class="small muted">Dokud nejsou napojené registry a platební brána, pracuje prototyp s uloženými odpověďmi. Datový model první iterace je v souboru schema.sql.</p>
+    </section>
+
+    <section class="card stack">
+      <h2>Další kroky</h2>
+      <div class="tblwrap"><table>
+        <tr><th>Iterace</th><th>Obsah</th><th>Výsledek</th></tr>
+        <tr><td class="mono">1</td><td>Skutečné nahrání balíčku do Supabase, vytěžení údajů z A a B, porovnání s formulářem</td><td class="small">Na tomto spisu systém sám najde chybějící parcelu a podmíněný souhlas.</td></tr>
+        <tr><td class="mono">2</td><td>Kontroly zrychleného řízení jako pravidla, generátor rozhodnutí, pohled úředníka nad daty</td><td class="small">Rozhodnutí vzniká z dat, ne ve Wordu.</td></tr>
+        <tr><td class="mono">3</td><td>Účet řízení pro účastníky: doručení, souhlas, vzdání se odvolání</td><td class="small">Právní moc v den vydání bez změny zákona.</td></tr>
+        <tr><td class="mono">4</td><td>Standardní řízení: účastníci bez souhlasu, námitky, lhůty, vyjádření dotčených orgánů</td><td class="small">Stejné jádro, další sada pravidel.</td></tr>
+        <tr><td class="mono">5</td><td>JES a EIA, společná řízení, kolaudace</td><td class="small">Celý životní cyklus stavby.</td></tr>
+      </table></div>
+    </section>
+  </div>`;
+}
+
+/* ===== Vykreslení a akce ===== */
+function render(){
+  document.querySelectorAll("[data-view]").forEach(b=>b.setAttribute("aria-pressed", b.dataset.view===S.view));
+  document.querySelectorAll("[data-law]").forEach(b=>b.setAttribute("aria-pressed", b.dataset.law===S.law));
+  app.innerHTML = {stavebnik:vStavebnik, urad:vUrad, koncept:vKoncept}[S.view]();
+  const drop = $("#drop");
+  if (drop){
+    ["dragover","dragenter"].forEach(e=>drop.addEventListener(e,ev=>{ev.preventDefault();drop.classList.add("over")}));
+    ["dragleave","drop"].forEach(e=>drop.addEventListener(e,ev=>{ev.preventDefault();drop.classList.remove("over")}));
+    drop.addEventListener("drop",()=>startScan(true));
+    $("#file").addEventListener("change",()=>startScan(true));
+  }
+}
+function go(view){ S.view = view; try{ history.replaceState(null,"","#"+view); }catch(e){} render(); window.scrollTo(0,0); }
+function startScan(own){
+  if (own) toast("Soubory přijaty. Analýzu předvedu na ukázkové dokumentaci.");
+  S.scanAt = 0; render();
+  const tick = () => { S.scanAt++; if (S.view==="stavebnik" && S.step===1) render(); if (S.scanAt < SCAN.length) later(tick, 650); };
+  later(tick, 650);
+}
+function runTrack(){
+  const tick = () => { if (S.trackAt < trackLimit()){ S.trackAt++; if (S.view==="stavebnik") render(); later(tick, 700); } };
+  later(tick, 500);
+}
+const ACT = {
+  order(){ S.step = 1; render(); },
+  login(){ S.logged = true; toast("Přihlášeno přes Identitu občana (simulace)."); render(); },
+  demo(){ startScan(false); },
+  toReview(){ S.step = 2; render(); window.scrollTo(0,0); },
+  askMO(){ toast("Žádost o souhlas odeslána statutárnímu městu…"); later(()=>{ S.moFixed = true; render(); toast("Vlastník souhlas udělil."); }, 1400); },
+  askPdf(){ toast("Odkaz k opravě odeslán hlavnímu projektantovi…"); later(()=>{ S.pdfFixed = true; render(); toast("Projektant nahrál opravené soubory."); }, 1400); },
+  uploadPdf(){ S.pdfFixed = true; render(); toast("25 souborů nahrazeno, PDF/A-3 a razítka ověřeny."); },
+  uploadMO(){ S.moFixed = true; render(); toast("Souhlas z 28. 5. 2026 nahrán a spárován s pozemky."); },
+  mkAccount(){ S.account = true; render(); toast("Účet vytvořen. Přihlašovací odkaz přijde do datové schránky."); },
+  toPay(){ S.step = 3; render(); window.scrollTo(0,0); },
+  back(){ S.step = 2; render(); },
+  submit(){ S.phase = "submitted"; S.trackAt = 0; render(); window.scrollTo(0,0); runTrack(); },
+  goUrad(){ S.tab = "prehled"; go("urad"); },
+  goKoncept(){ go("koncept"); },
+  restart(){ clearTimers(); Object.assign(S,{step:0,moFixed:false,pdfFixed:false,phase:"draft",trackAt:0,scanAt:-1,account:false,tab:"prehled"}); render(); },
+  approve(){ if (S.phase==="draft") S.trackAt = 5; S.phase = "approved"; S.tab = "doruceni"; render(); toast("Podepsáno. Rozhodnutí se doručuje 11 účastníkům."); },
+  waive(){ S.phase = "final"; S.trackAt = 9; render(); toast("Rozhodnutí je pravomocné. Doložka, ověřená dokumentace a štítek jsou vyhotoveny."); },
+  returnIt(){ toast("V prototypu není vrácení žádosti zapojené."); },
+  audit(){ toast("Kontrola vzorku potvrzena."); },
+  review(){ toast("V prototypu není přezkum zapojený."); }
+};
+document.addEventListener("click", e => {
+  const t = e.target.closest("[data-view],[data-law],[data-act],[data-tab]"); if (!t || t.disabled) return;
+  if (t.dataset.view) return go(t.dataset.view);
+  if (t.dataset.law){ S.law = t.dataset.law; if (S.phase!=="draft"){ S.trackAt = Math.min(Math.max(S.trackAt,5), trackLimit()); if (S.law==="cil") S.trackAt = 9; } return render(); }
+  if (t.dataset.tab){ S.tab = t.dataset.tab; return render(); }
+  if (t.dataset.act && ACT[t.dataset.act]) ACT[t.dataset.act]();
+});
+document.addEventListener("change", e => { if (e.target.name === "pay") S.pay = e.target.value; });
+function fromHash(){ const h = location.hash.slice(1); if (["stavebnik","urad","koncept"].includes(h)) S.view = h; render(); }
+window.addEventListener("hashchange", fromHash);
+fromHash();
+</script>
+</body>
+</html>
