@@ -202,6 +202,9 @@ summary{cursor:pointer;font-weight:600}
 .auth{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .find{display:flex;flex-direction:column;gap:8px;list-style:none;margin:0;padding:0}
 .find li{display:flex;gap:10px;align-items:baseline}
+.up2{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px}
+.upt{display:flex;flex-direction:column;gap:8px;align-items:center;cursor:pointer;padding:26px 18px}
+.upt b{font-size:18px}
 </style>
 </head>
 <body data-page="podani">
@@ -215,14 +218,10 @@ summary{cursor:pointer;font-weight:600}
 </header>
 <main class="wrap stack" style="gap:20px">
   <div>
-    <h1>Nahrajte dokumentaci</h1>
-    <p class="muted" style="max-width:68ch;margin-top:8px">Balíček z Portálu stavebníka (ZIP). Soubory se zpracují ve vašem prohlížeči a nikam se neodesílají. Po přihlášení lze uložit vytěžené údaje, otisky souborů a výsledky kontrol.</p>
+    <h1>Nahrajte dokumentaci a přílohy</h1>
+    <p class="muted" style="max-width:68ch;margin-top:8px">Vyberte dokumentaci a přílohy, pak vše vytěžíme naráz. Po přihlášení lze uložit vytěžené údaje, otisky souborů a výsledky kontrol.</p>
   </div>
-  <div class="drop" id="drop">
-    <p style="font-weight:600;font-size:17px">Přetáhněte sem ZIP s dokumentací</p>
-    <p class="muted small" style="margin:6px 0 16px">balíček BPP s manifest.xml, žádostí a dokumentací</p>
-    <label class="btn brand" for="file">Vybrat soubor</label><input id="file" type="file" accept=".zip" hidden>
-  </div>
+  <div id="upbox"></div>
   <div id="progress" class="card" hidden></div>
   <div id="out" class="stack" style="gap:16px"></div>
 </main>

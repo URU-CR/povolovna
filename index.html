@@ -197,6 +197,9 @@ input[type=date],input[type=email],input[type=text]{font:inherit;color:var(--ink
 pre{font-family:var(--mono);font-size:12.5px;background:var(--sunk);border-radius:8px;padding:12px;overflow-x:auto;margin:0}
 .toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:8px;font-weight:500;z-index:50;max-width:calc(100% - 32px)}
 [hidden]{display:none!important}
+.up2{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px}
+.upt{display:flex;flex-direction:column;gap:8px;align-items:center;cursor:pointer;padding:26px 18px}
+.upt b{font-size:18px}
 </style>
 </head>
 <body>
@@ -323,16 +326,10 @@ const SCAN = [
 function vUpload(){
   if (S.scanAt < 0) return stepper() + `
     <div class="stack">
-      <div><h2>Nahrajte dokumentaci</h2><p class="muted">Celou složku nebo ZIP tak, jak ji dostanete od projektanta. Roztřídíme ji sami.</p></div>
-      <div class="drop" id="drop">
-        <p style="font-weight:600;font-size:17px">Přetáhněte sem soubory</p>
-        <p class="muted small" style="margin:6px 0 16px">PDF, ZIP, balíček z Portálu stavebníka, výkresy, skeny vyjádření</p>
-        <div class="row" style="justify-content:center">
-          <label class="btn" for="file">Vybrat ZIP</label><input id="file" type="file" accept=".zip" hidden>
-          <button class="btn brand" data-act="demo">Použít ukázkovou dokumentaci</button>
-        </div>
-      </div>
-      <p class="small muted">Ukázka vychází ze skutečné dokumentace zázemí pro řidiče MHD; osoby, firmy a místo jsou anonymizované. Vlastní ZIP z Portálu stavebníka se zpracuje doopravdy, ve vašem prohlížeči.</p>
+      <div><h2>Nahrajte dokumentaci a přílohy</h2><p class="muted">Dokumentaci tak, jak ji máte z Portálu stavebníka. Přílohy jsou vše ostatní, typicky souhlasy vlastníků. Pak vše vytěžíme naráz.</p></div>
+      <div id="upbox"><div class="issue soft small">Skutečné nahrání a vytěžení funguje ve verzi na GitHub Pages. Tady si můžete projít ukázku.</div></div>
+      <div class="row"><button class="btn" data-act="demo">Použít ukázkovou dokumentaci</button></div>
+      <p class="small muted">Ukázka vychází ze skutečné dokumentace zázemí pro řidiče MHD; osoby, firmy a místo jsou anonymizované.</p>
     </div>`;
   return stepper() + `
     <div class="card stack" style="max-width:720px">
@@ -759,31 +756,22 @@ function render(){
   document.querySelectorAll("[data-view]").forEach(b=>b.setAttribute("aria-pressed", b.dataset.view===S.view));
   document.querySelectorAll("[data-law]").forEach(b=>b.setAttribute("aria-pressed", b.dataset.law===S.law));
   app.innerHTML = {stavebnik:vStavebnik, urad:vUrad, koncept:vKoncept}[S.view]();
-  const drop = $("#drop");
-  if (S.view==="stavebnik" && S.real && S.step===2 && S.phase==="draft" && window.Povolovna) Povolovna.render();
-  if (drop){
-    ["dragover","dragenter"].forEach(e=>drop.addEventListener(e,ev=>{ev.preventDefault();drop.classList.add("over")}));
-    ["dragleave","drop"].forEach(e=>drop.addEventListener(e,ev=>{ev.preventDefault();drop.classList.remove("over")}));
-    drop.addEventListener("drop",ev=>takeReal(ev.dataTransfer.files[0]));
-    $("#file").addEventListener("change",ev=>takeReal(ev.target.files[0]));
-  }
+  if ($("#upbox") && window.Povolovna && window.JSZip && window.pdfjsLib) Povolovna.mountUpload();
 }
 function go(view){ S.view = view; try{ history.replaceState(null,"","#"+view); }catch(e){} render(); window.scrollTo(0,0); }
 const escH = v => String(v ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-function takeReal(file){
-  if (!file) return;
-  if (!window.Povolovna || !window.JSZip || !window.pdfjsLib){ startScan(true); return; }
-  S.real = true; S.step = 2; render(); window.scrollTo(0,0);
-  Povolovna.take(file).then(()=>{ const r = Povolovna.result; if (r){ C.nazev = escH(r.zadost?.nazev || r.A?.nazev) || C.nazev; const n = $("#realnext"); if (n) n.hidden = false; } });
+if (window.Povolovna){
+  Povolovna.onStart = () => { S.real = true; S.step = 2; render(); window.scrollTo(0,0); };
+  Povolovna.onDone = () => { const r = Povolovna.result; if (r){ C.nazev = escH(r.zadost?.nazev || r.A?.nazev) || C.nazev; const n = $("#realnext"); if (n) n.hidden = false; } };
 }
 function vReal(){
   return stepper() + `
   <div class="stack" style="gap:16px">
-    <div><h2>Zkontrolujte, co jsme vyčetli</h2><p class="muted">Výsledky jsou z vašeho balíčku. Soubory se zpracovaly ve vašem prohlížeči a nikam se neodeslaly.</p></div>
+    <div><h2>Zkontrolujte, co jsme vyčetli</h2><p class="muted">Výsledky jsou z vaší dokumentace a příloh. Soubory se zpracovaly ve vašem prohlížeči a nikam se neodeslaly.</p></div>
     <div id="progress" class="card" hidden></div>
     <div id="out" class="stack" style="gap:16px"></div>
-    <div class="issue soft small">Z balíčku čteme žádost, průvodní list, pozemky a vlastnosti souborů. Doklady a přidané přílohy vytěžíte tlačítkem níže. Okruh účastníků řízení zatím neurčujeme. Platba a průběh řízení v dalších krocích jsou simulace.</div>
-    <div class="row" id="realnext" ${window.Povolovna && Povolovna.result ? "" : "hidden"}><button class="btn pri big" data-act="toPay">Pokračovat k platbě</button><button class="btn" data-act="otherPkg">Nahrát jiný balíček</button></div>
+    <div class="issue soft small">Čteme žádost, průvodní list, pozemky, vlastnosti souborů a všechny doklady a přílohy. Okruh účastníků řízení zatím neurčujeme. Platba a průběh řízení v dalších krocích jsou simulace.</div>
+    <div class="row" id="realnext" ${window.Povolovna && Povolovna.result ? "" : "hidden"}><button class="btn pri big" data-act="toPay">Pokračovat k platbě</button><button class="btn" data-act="otherPkg">Nahrát jiné soubory</button></div>
   </div>`;
 }
 function startScan(own){
@@ -800,7 +788,7 @@ const ACT = {
   order(){ S.step = 1; render(); },
   login(){ S.logged = true; toast("Přihlášeno přes Identitu občana (simulace)."); render(); },
   demo(){ startScan(false); },
-  otherPkg(){ S.real = false; S.step = 1; S.scanAt = -1; render(); },
+  otherPkg(){ if (window.Povolovna) Povolovna.reset(); S.real = false; S.step = 1; S.scanAt = -1; render(); },
   toReview(){ S.step = 2; render(); window.scrollTo(0,0); },
   askMO(){ toast("Žádost o souhlas odeslána statutárnímu městu…"); later(()=>{ S.moFixed = true; render(); toast("Vlastník souhlas udělil."); }, 1400); },
   askPdf(){ toast("Odkaz k opravě odeslán hlavnímu projektantovi…"); later(()=>{ S.pdfFixed = true; render(); toast("Projektant nahrál opravené soubory."); }, 1400); },

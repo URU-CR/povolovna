@@ -13,7 +13,8 @@ const base = p => nfc(p.split("/").pop());
 function toast(m){ const t = $("#toast"); t.textContent = m; t.hidden = false; clearTimeout(toast.t); toast.t = setTimeout(() => t.hidden = true, 4000); }
 
 /* ---------- přihlášení ---------- */
-let user = null, R = null;
+let user = null, R = null, batch = false;
+const sel = { dok: null, pri: [] }, api = {};
 function renderAuth(){
   if (!$("#auth") || !sb) return;
   $("#auth").innerHTML = user
@@ -150,16 +151,26 @@ async function analyze(file){
   }
   R = { balicek: file.name, manifest, files, zadost, A };
   R.nalezy = compare(R); R.kontroly = checks(R);
-  if ($("#progress")) $("#progress").hidden = true; render();
+  if (!batch){ if ($("#progress")) $("#progress").hidden = true; render(); }
 }
 
 /* ---------- další přílohy ---------- */
 async function addAttachments(list){
   if (!R) return;
+  const items = [];
   for (const file of list){
-    const bytes = new Uint8Array(await file.arrayBuffer()), name = nfc(file.name);
-    const sha = [...new Uint8Array(await crypto.subtle.digest("SHA-256", bytes))].map(b => b.toString(16).padStart(2, "0")).join("");
-    if (R.files.some(f => f.sha256 === sha)){ toast(`${name} už v podání je.`); continue; }
+    if (/\.zip$/i.test(file.name)){
+      if (batch) step(`Rozbaluji přílohy: ${file.name}`);
+      const zip = await JSZip.loadAsync(file, { decodeFileName: b => new TextDecoder("utf-8").decode(b) });
+      for (const f of Object.values(zip.files)) if (!f.dir && !/(^|\/)(\.|__MACOSX)/.test(f.name)) items.push({ name: base(f.name), bytes: await f.async("uint8array") });
+    } else items.push({ name: nfc(file.name), bytes: new Uint8Array(await file.arrayBuffer()) });
+  }
+  let n = 0;
+  for (const { name, bytes } of items){
+    if (batch) step(`Čtu přílohy ${++n} z ${items.length}: ${name}`);
+    const buf = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
+    const sha = [...new Uint8Array(await crypto.subtle.digest("SHA-256", buf))].map(b => b.toString(16).padStart(2, "0")).join("");
+    if (R.files.some(f => f.sha256 === sha)){ if (!batch) toast(`${name} už v podání je.`); continue; }
     const rec = { nazev: name, cesta: name, part: "priloha", velikost: bytes.length, sha256: sha, md5ok: null, pdf: /\.pdf$/i.test(name), bytes };
     if (rec.pdf){
       Object.assign(rec, pdfMarks(bytes));
@@ -167,7 +178,7 @@ async function addAttachments(list){
     }
     R.files.push(rec);
   }
-  R.saved = null; R.kontroly = checks(R); render();
+  R.saved = null; R.kontroly = checks(R); if (!batch) render();
 }
 
 /* ---------- čtení skenů a vytěžení dokladů ---------- */
@@ -217,13 +228,14 @@ async function extractAll(){
   const skip = [R.zadost?.zadatel?.nazev, R.zadost?.zastupce?.nazev].filter(Boolean).map(x => x.toLowerCase().replace(/,?\s*(a\.\s?s\.|s\.\s?r\.\s?o\.|spol\. s r\.\s?o\.)\s*$/i, "").trim());
   let n = 0;
   for (const f of docs){
-    const st = $("#extstate"); if (st) st.textContent = `Čtu ${++n} z ${docs.length}: ${f.nazev}${f.maText === false ? " (sken)" : ""}`;
+    const msg = `Vytěžuji doklady a přílohy ${++n} z ${docs.length}: ${f.nazev}${f.maText === false ? " (sken)" : ""}`, st = $("#extstate");
+    if (batch) step(msg); else if (st) st.textContent = msg;
     try {
       const text = f.maText === false ? await ocrPdf(f.bytes, 3) : (await pdfLines(f.bytes, 6)).pages.flat().join("\n");
       f.vyt = extractDoc(text, parcely, skip); f.ocr = f.maText === false;
     } catch (e){ f.vyt = { druh: "jiné", stanovisko: "neurčeno", parcely: [], chyba: e.message || String(e) }; }
   }
-  extracting = false; R.vytezeno = true; R.saved = null; R.kontroly = checks(R); render();
+  extracting = false; R.vytezeno = true; R.saved = null; R.kontroly = checks(R); if (!batch) render();
 }
 
 function compare({ zadost, A }){
@@ -325,10 +337,10 @@ function render(){
 
   <section class="card stack">
     <div class="sec-h"><h3>Doklady a další přílohy</h3><span class="small muted">${r.files.filter(f => f.part === "doklad").length} dokladů v balíčku, ${r.files.filter(f => f.part === "priloha").length} přidaných příloh</span></div>
-    <p class="small">Sem patří vše, co v balíčku z portálu není: souhlasy vlastníků, plné moci, aktualizovaná vyjádření. Přílohy se čtou stejně jako doklady z balíčku, skeny se převádějí na text ve vašem prohlížeči.</p>
-    <div class="row"><label class="btn" for="att">Přidat přílohy</label><input id="att" type="file" accept=".pdf" multiple hidden>
+    <p class="small">Přílohy jsou vše, co v balíčku z portálu není: souhlasy vlastníků, plné moci, aktualizovaná vyjádření. Další můžete přidat i teď, jako ZIP nebo jednotlivá PDF.</p>
+    <div class="row"><label class="btn" for="att">Přidat přílohy</label><input id="att" type="file" accept=".pdf,.zip" multiple hidden>
       <button class="btn brand" id="extract">${r.vytezeno ? "Vytěžit nově přidané" : "Vytěžit doklady a přílohy"}</button>
-      <span class="small muted" id="extstate">${r.vytezeno ? "" : `${r.files.filter(f => (f.part === "doklad" || f.part === "priloha") && f.maText === false).length} skenů, čtení potrvá několik minut`}</span></div>
+      <span class="small muted" id="extstate">${r.files.some(f => f.pdf && (f.part === "doklad" || f.part === "priloha") && !f.vyt) ? "některé dokumenty ještě nejsou vytěžené" : "vše vytěženo"}</span></div>
     ${r.files.some(f => f.vyt || f.part === "priloha") ? `<div class="tblwrap"><table><tr><th>Soubor</th><th>Druh</th><th>Vydal (odhad)</th><th>Značka</th><th>Datum</th><th>Stanovisko</th><th>Zmíněné parcely</th></tr>
     ${r.files.filter(f => f.part === "doklad" || f.part === "priloha").sort((a, b) => (b.part === "priloha") - (a.part === "priloha") || (b.vyt?.vlastnik || 0) - (a.vyt?.vlastnik || 0)).map(f => { const v = f.vyt;
       const pill = !v ? `<span class="pill idle">nevytěženo</span>` : `<span class="pill ${/^nesouhlas/.test(v.stanovisko) ? "bad" : /podm/.test(v.stanovisko) ? "warn" : /^souhlas|^bez/.test(v.stanovisko) ? "ok" : "idle"}">${esc(v.stanovisko)}</span>`;
@@ -368,18 +380,48 @@ async function save(){
   } catch (e){ btn.disabled = false; toast("Uložení se nepodařilo: " + (e.message || e)); }
 }
 
-/* ---------- vstup ---------- */
-async function take(file){
-  if (!file) return;
-  try { await analyze(file); }
-  catch (e){ if ($("#progress")) $("#progress").hidden = true; if ($("#out")) $("#out").innerHTML = `<div class="issue"><b>Balíček se nepodařilo zpracovat.</b> ${esc(e.message || e)} Zkontrolujte, že jde o ZIP.</div>`; }
+/* ---------- vstup: dokumentace + přílohy, pak vše naráz ---------- */
+function mountUpload(){
+  const b = $("#upbox"); if (!b) return;
+  b.innerHTML = `<div class="up2">
+    <label class="drop upt" data-up="dok" for="f-dok"><b>1 · Dokumentace</b><span class="small muted">ZIP z Portálu stavebníka (žádost, dokumentace, doklady)</span><span class="btn">Vybrat dokumentaci</span><span class="small">${sel.dok ? `<span class="pill ok">vybráno</span> ${esc(sel.dok.name)}` : "nevybráno"}</span></label>
+    <input id="f-dok" type="file" accept=".zip" hidden>
+    <label class="drop upt" data-up="pri" for="f-pri"><b>2 · Přílohy</b><span class="small muted">ZIP nebo jednotlivá PDF: souhlasy vlastníků, plné moci, další vyjádření</span><span class="btn">Vybrat přílohy</span><span class="small">${sel.pri.length ? `<span class="pill ok">${sel.pri.length}</span> ${sel.pri.map(f => esc(f.name)).join(", ")}` : "nepovinné"}</span></label>
+    <input id="f-pri" type="file" accept=".zip,.pdf" multiple hidden>
+  </div>
+  <div class="row" style="margin-top:14px"><button class="btn pri big" id="runall" ${sel.dok ? "" : "disabled"}>Vytěžit vše</button>${sel.dok || sel.pri.length ? `<button class="btn" id="clearsel">Zrušit výběr</button>` : ""}<span class="small muted">Soubory se zpracují ve vašem prohlížeči a nikam se neodesílají. Čtení skenů potrvá několik minut.</span></div>`;
 }
-window.Povolovna = { take, render, get result(){ return R; } };
-const drop = document.body.dataset.page === "podani" ? $("#drop") : null;
-if (drop){
-["dragover", "dragenter"].forEach(e => drop.addEventListener(e, ev => { ev.preventDefault(); drop.classList.add("over"); }));
-["dragleave", "drop"].forEach(e => drop.addEventListener(e, ev => { ev.preventDefault(); drop.classList.remove("over"); }));
-drop.addEventListener("drop", ev => take(ev.dataTransfer.files[0]));
-$("#file").addEventListener("change", ev => take(ev.target.files[0]));
+function pick(kind, files){
+  if (!files.length) return;
+  if (kind === "dok"){ const z = files.find(f => /\.zip$/i.test(f.name)); if (!z) return toast("Dokumentace musí být ZIP z Portálu stavebníka."); sel.dok = z; }
+  else for (const f of files) if (/\.(zip|pdf)$/i.test(f.name) && !sel.pri.some(x => x.name === f.name && x.size === f.size)) sel.pri.push(f);
+  mountUpload();
 }
+async function run(){
+  if (!sel.dok) return toast("Nejdřív vyberte ZIP s dokumentací.");
+  if (api.onStart) api.onStart();
+  if ($("#upbox")) $("#upbox").hidden = true;
+  batch = true;
+  try { await analyze(sel.dok); await addAttachments(sel.pri); await extractAll(); }
+  catch (e){ R = null; if ($("#out")) $("#out").innerHTML = `<div class="issue"><b>Soubory se nepodařilo zpracovat.</b> ${esc(e.message || e)} Zkontrolujte, že dokumentace je ZIP z Portálu stavebníka.</div>`; if ($("#upbox")) $("#upbox").hidden = false; }
+  batch = false; if ($("#progress")) $("#progress").hidden = true;
+  render(); if (R && api.onDone) api.onDone();
+}
+document.addEventListener("change", e => {
+  if (e.target.id === "f-dok") pick("dok", [...e.target.files]);
+  if (e.target.id === "f-pri") pick("pri", [...e.target.files]);
+});
+document.addEventListener("click", e => {
+  if (e.target.id === "runall") run();
+  if (e.target.id === "clearsel"){ sel.dok = null; sel.pri = []; mountUpload(); }
+});
+for (const ev of ["dragover", "dragenter", "dragleave", "drop"]) document.addEventListener(ev, e => {
+  const t = e.target.closest && e.target.closest("[data-up]"); if (!t) return;
+  e.preventDefault(); t.classList.toggle("over", ev === "dragover" || ev === "dragenter");
+  if (ev === "drop") pick(t.dataset.up, [...e.dataTransfer.files]);
+});
+Object.assign(api, { mountUpload, render, reset(){ R = null; sel.dok = null; sel.pri = []; } });
+Object.defineProperty(api, "result", { get: () => R });
+window.Povolovna = api;
+mountUpload();
 })();
