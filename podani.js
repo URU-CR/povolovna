@@ -31,6 +31,8 @@ document.addEventListener("click", async e => {
   if (e.target.id === "logout") await sb.auth.signOut();
   if (e.target.id === "save") save();
 });
+document.addEventListener("click", e => { if (e.target.id === "extract") extractAll(); });
+document.addEventListener("change", e => { if (e.target.id === "att" && e.target.files.length) addAttachments([...e.target.files]); });
 if (sb) sb.auth.onAuthStateChange((_e, s) => { user = s?.user || null; renderAuth(); });
 renderAuth();
 
@@ -64,7 +66,7 @@ async function pdfLines(bytes, maxPages){
 
 /* ---------- manifest a žádost ---------- */
 const PART = { Project: "zadost", AccompanyingDocuments: "A", TechnicalReport: "B", SituationDrawings: "C", StructureDocumentation: "D", Papers: "doklad" };
-const PART_NAME = { zadost: "Žádost z portálu", A: "A Průvodní list", B: "B Souhrnná technická zpráva", C: "C Situační výkresy", D: "D Dokumentace objektů", doklad: "Doklady", jine: "Mimo manifest" };
+const PART_NAME = { priloha: "Přidané přílohy", zadost: "Žádost z portálu", A: "A Průvodní list", B: "B Souhrnná technická zpráva", C: "C Situační výkresy", D: "D Dokumentace objektů", doklad: "Doklady", jine: "Mimo manifest" };
 function parseManifest(xml){
   const d = new DOMParser().parseFromString(xml, "application/xml");
   const txt = n => d.getElementsByTagName(n)[0]?.textContent.trim() || "";
@@ -132,7 +134,7 @@ async function analyze(file){
     const bytes = await f.async("uint8array"), buf = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
     const sha = [...new Uint8Array(await crypto.subtle.digest("SHA-256", buf))].map(b => b.toString(16).padStart(2, "0")).join("");
     const mi = byName.get(name);
-    const rec = { nazev: name, cesta: nfc(f.name), part: mi?.part || "jine", velikost: bytes.length, sha256: sha, md5ok: mi ? SparkMD5.ArrayBuffer.hash(buf) === mi.md5 : null, pdf: /\.pdf$/i.test(name) };
+    const rec = { nazev: name, cesta: nfc(f.name), part: mi?.part || "jine", velikost: bytes.length, sha256: sha, md5ok: mi ? SparkMD5.ArrayBuffer.hash(buf) === mi.md5 : null, pdf: /\.pdf$/i.test(name), bytes };
     if (mi) mi.found = true;
     if (rec.pdf){
       Object.assign(rec, pdfMarks(bytes));
@@ -149,6 +151,79 @@ async function analyze(file){
   R = { balicek: file.name, manifest, files, zadost, A };
   R.nalezy = compare(R); R.kontroly = checks(R);
   if ($("#progress")) $("#progress").hidden = true; render();
+}
+
+/* ---------- další přílohy ---------- */
+async function addAttachments(list){
+  if (!R) return;
+  for (const file of list){
+    const bytes = new Uint8Array(await file.arrayBuffer()), name = nfc(file.name);
+    const sha = [...new Uint8Array(await crypto.subtle.digest("SHA-256", bytes))].map(b => b.toString(16).padStart(2, "0")).join("");
+    if (R.files.some(f => f.sha256 === sha)){ toast(`${name} už v podání je.`); continue; }
+    const rec = { nazev: name, cesta: name, part: "priloha", velikost: bytes.length, sha256: sha, md5ok: null, pdf: /\.pdf$/i.test(name), bytes };
+    if (rec.pdf){
+      Object.assign(rec, pdfMarks(bytes));
+      try { const t = await pdfLines(bytes, 2); rec.stran = t.numPages; rec.maText = t.pages.flat().join(" ").length > 40; } catch (e){ rec.chyba = "PDF se nepodařilo otevřít"; }
+    }
+    R.files.push(rec);
+  }
+  R.saved = null; R.kontroly = checks(R); render();
+}
+
+/* ---------- čtení skenů a vytěžení dokladů ---------- */
+let ocrWorker = null;
+async function ocrPdf(bytes, maxPages){
+  if (!window.Tesseract) throw new Error("Čtení skenů není v této verzi k dispozici.");
+  ocrWorker = ocrWorker || await Tesseract.createWorker("ces", 1, { workerPath: "vendor/ocr/worker.min.js", corePath: "vendor/ocr/", langPath: "vendor/ocr/lang", workerBlobURL: false, gzip: true });
+  const doc = await pdfjsLib.getDocument({ data: bytes.slice(), isEvalSupported: false }).promise; let text = "";
+  for (let p = 1; p <= Math.min(doc.numPages, maxPages); p++){
+    const pg = await doc.getPage(p), vp = pg.getViewport({ scale: 2 }), c = document.createElement("canvas");
+    c.width = vp.width; c.height = vp.height;
+    await pg.render({ canvasContext: c.getContext("2d"), viewport: vp }).promise;
+    text += (await ocrWorker.recognize(c)).data.text + "\n";
+    c.width = c.height = 0;
+  }
+  await doc.destroy(); return text;
+}
+const MES = ["ledna", "února", "března", "dubna", "května", "června", "července", "srpna", "září", "října", "listopadu", "prosince"];
+function extractDoc(text, parcely, skip){
+  const lines = text.split("\n").map(l => l.trim()).filter(Boolean), head = lines.slice(0, 30).join("\n"), now = Date.now();
+  // datum: přednost má popisek DATUM, jinak první datum v záhlaví, které není „ze dne" (datum žádosti) ani platnost
+  const dates = [];
+  for (const m of head.matchAll(new RegExp("(\\d{1,2})\\.\\s?(?:(\\d{1,2})\\.|(" + MES.join("|") + "))\\s?(20\\d{2})", "gi"))){
+    const mm = m[2] ? +m[2] : MES.indexOf(m[3].toLowerCase()) + 1, dt = new Date(+m[4], mm - 1, +m[1]);
+    if (isNaN(dt) || dt.getTime() > now || /(ze dne|platnost\w*|do)\s*:?\s*$/i.test(head.slice(Math.max(0, m.index - 14), m.index))) continue;
+    dates.push(dt);
+  }
+  const lab = /DATUM\s*:?\s*(\d{1,2})\.\s?(\d{1,2})\.\s?(20\d{2})/i.exec(head);
+  const d = lab ? new Date(+lab[3], +lab[2] - 1, +lab[1]) : dates[0];
+  const zn = /NAŠE\s+(?:Č\.\s?J\.|ZN(?:AČKA)?\.?)\s*:?\s*([A-Z0-9][\w\/\-.]{3,40})/i.exec(head) || /(?:č\.\s?j\.|sp\.\s?zn\.|zn(?:ačka)?\.?)\s*:\s*([A-Z0-9][\w\/\-.]{3,40})/i.exec(head);
+  const vydal = lines.slice(0, 8).filter(l => /^[A-ZÁ-Ž][\wá-žÁ-Ž.,\- ]{6,70}$/.test(l) && l.split(" ").length >= 2 && !/^(VÁŠ|NAŠE|ZE DNE|SPIS|VYŘIZUJE|TELEFON|DATUM|Dobrý den|Vážen)/i.test(l) && !(skip || []).some(x => x && l.toLowerCase().includes(x))).slice(0, 2).join(", ");
+  const neg = /(?<![a-zá-ž])nesouhlas(í|íme)(?![a-zá-ž])/i.test(text), pos = /(?<![a-zá-ž])souhlas(í|íme)(?![a-zá-ž])|souhlasné|bez připomínek|nemá(me)? (námitek|připomínek)/i.test(text);
+  const cond = /do doby splnění|za podmín|při (dodržení|splnění) [^.\n]{0,30}podmín|podmín(ky|ek|kami)\s*:|s podmínkami/i.test(text);
+  const stanovisko = neg ? (cond ? "nesouhlas do splnění podmínky" : "nesouhlas") : pos ? (cond ? "souhlas s podmínkami" : "souhlas") : /nedojde ke střetu|nedochází ke střetu|se nenachází|nenacház[íe]jí|není dotčen/i.test(text) ? "bez dotčení" : "neurčeno";
+  const druh = /závazné stanovisko/i.test(head) ? "závazné stanovisko" : /plná moc|plnou moc|zmocňuj/i.test(head) ? "plná moc" : /existenc[ei] (podzemních )?sítí|poloze sítě|o existenci/i.test(head) ? "existence sítí" : /vyjádření/i.test(head) ? "vyjádření" : /stanovisko/i.test(head) ? "stanovisko" : /sdělení/i.test(head) ? "sdělení" : /souhlas/i.test(head) ? "souhlas" : "jiné";
+  const vlastnik = /jako vlastník\w* (dotčen|pozemk)|vlastníka (dotčen\w+ )?pozemk|souhlas vlastníka/i.test(text);
+  const pl = /platnost[^.\n]{0,40}?(\d+)\s*(rok|let|měsíc)/i.exec(text);
+  return { druh, vydal: vydal || null, znacka: zn ? zn[1].replace(/[.,]$/, "") : null, datum: d ? `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}` : null,
+    stanovisko, podminky: cond, vlastnik, platnost: pl ? pl[1] + " " + pl[2] : null,
+    parcely: parcely.filter(k => new RegExp("(?<![\\d/])" + k.replace("/", "\\/") + "(?![\\d/])").test(text)) };
+}
+let extracting = false;
+async function extractAll(){
+  if (!R || extracting) return; extracting = true;
+  const docs = R.files.filter(f => f.pdf && (f.part === "doklad" || f.part === "priloha") && !f.vyt && !f.chyba);
+  const parcely = [...new Set([...(R.A?.pozemky || []), ...(R.zadost?.pozemky || [])].map(p => p.parcela))];
+  const skip = [R.zadost?.zadatel?.nazev, R.zadost?.zastupce?.nazev].filter(Boolean).map(x => x.toLowerCase().replace(/,?\s*(a\.\s?s\.|s\.\s?r\.\s?o\.|spol\. s r\.\s?o\.)\s*$/i, "").trim());
+  let n = 0;
+  for (const f of docs){
+    const st = $("#extstate"); if (st) st.textContent = `Čtu ${++n} z ${docs.length}: ${f.nazev}${f.maText === false ? " (sken)" : ""}`;
+    try {
+      const text = f.maText === false ? await ocrPdf(f.bytes, 3) : (await pdfLines(f.bytes, 6)).pages.flat().join("\n");
+      f.vyt = extractDoc(text, parcely, skip); f.ocr = f.maText === false;
+    } catch (e){ f.vyt = { druh: "jiné", stanovisko: "neurčeno", parcely: [], chyba: e.message || String(e) }; }
+  }
+  extracting = false; R.vytezeno = true; R.saved = null; R.kontroly = checks(R); render();
 }
 
 function compare({ zadost, A }){
@@ -189,6 +264,20 @@ function checks(r){
   add("casove_razitko", "Časové razítko u částí C a D", noT.length ? "upozorneni" : "ok", false, `${vyk.length - noT.length} z ${vyk.length} souborů má časové razítko.`);
   const dk = g("doklad").filter(f => f.pdf), sk = dk.filter(f => f.maText === false);
   add("textova_vrstva", "Textová vrstva dokladů", sk.length ? "upozorneni" : "ok", false, `${sk.length} z ${dk.length} dokladů je sken bez textu.`);
+  if (r.vytezeno){
+    const vy = r.files.filter(f => f.vyt), cz = d => d ? d.split("-").reverse().map(Number).join(". ") : "bez data";
+    const vl = vy.filter(f => f.vyt.vlastnik).sort((a, b) => (b.vyt.datum || "").localeCompare(a.vyt.datum || ""));
+    const vse = [...new Set([...(r.A?.pozemky || []), ...(r.zadost?.pozemky || [])].map(p => p.parcela))];
+    if (!vl.length) add("souhlas_vlastnika", "Souhlas vlastníka pozemků", "blokuje", true, "Mezi doklady ani přílohami není vyjádření vlastníka pozemků. Nahrajte ho jako přílohu.");
+    else {
+      const f = vl[0], v = f.vyt, chybi = vse.filter(k => !v.parcely.includes(k));
+      if (/^nesouhlas/.test(v.stanovisko)) add("souhlas_vlastnika", "Souhlas vlastníka pozemků", "blokuje", true, `Nejnovější vyjádření vlastníka (${f.nazev}, ${cz(v.datum)}) zní: ${v.stanovisko}. Nahrajte platný souhlas jako přílohu.`);
+      else if (!/^souhlas/.test(v.stanovisko)) add("souhlas_vlastnika", "Souhlas vlastníka pozemků", "upozorneni", true, `Z vyjádření vlastníka (${f.nazev}, ${cz(v.datum)}) se nepodařilo určit, zda souhlasí. Ověřte ručně.`);
+      else add("souhlas_vlastnika", "Souhlas vlastníka pozemků", chybi.length ? "upozorneni" : "ok", true, `Vlastník souhlasí (${f.nazev}, ${cz(v.datum)}${v.podminky ? ", s podmínkami" : ""}).` + (chybi.length ? ` Ve vyjádření nejsou zmíněny parcely ${chybi.join(", ")}.` : ` Zmiňuje všech ${vse.length} parcel.`) + (vl.length > 1 ? ` Starší vyjádření: ${vl.length - 1}.` : ""));
+    }
+    const c = x => vy.filter(f => !f.vyt.vlastnik && x.test(f.vyt.stanovisko)).length, ne = c(/^nesouhlas/);
+    add("stanoviska", "Stanoviska v dokladech a přílohách", ne ? "upozorneni" : "ok", false, `Z ${vy.length} dokumentů: ${c(/^souhlas$/)} souhlas, ${c(/^souhlas s/)} souhlas s podmínkami, ${c(/^bez/)} bez dotčení, ${ne} nesouhlas, ${c(/^neurč/)} neurčeno. Pravidla jsou orientační, výsledek ověřte.`);
+  }
   return k;
 }
 
@@ -198,7 +287,7 @@ const yes = (v, t = "ano", f = "ne") => v ? `<span class="pill ok">${t}</span>` 
 function render(){
   if (!R || !$("#out")) return;
   const r = R, z = r.zadost, a = r.A, blok = r.kontroly.filter(k => k.vysledek === "blokuje").length, upo = r.kontroly.filter(k => k.vysledek === "upozorneni").length;
-  const parts = ["zadost", "A", "B", "C", "D", "doklad", "jine"].map(p => [p, r.files.filter(f => f.part === p)]).filter(x => x[1].length);
+  const parts = ["zadost", "A", "B", "C", "D", "doklad", "priloha", "jine"].map(p => [p, r.files.filter(f => f.part === p)]).filter(x => x[1].length);
   const os = (n, o) => o ? `<dt>${n}</dt><dd>${esc(o.nazev)}${o.ico ? `, IČO ${esc(o.ico)}` : ""} <span class="src">žádost XML</span></dd>` : "";
   $("#out").innerHTML = `
   <div class="issue ${blok ? "" : upo ? "soft" : "fixed"}"><b>${blok ? `${blok} ${blok === 1 ? "kontrola brání" : "kontroly brání"} odeslání` : "Nic nebrání odeslání"}${upo ? `, ${upo} upozornění` : ""}.</b> Balíček ${esc(r.balicek)}: ${r.files.length} souborů${r.manifest ? `, formát BPP ${esc(r.manifest.verze)}, vytvořil ${esc(r.manifest.vytvoril)}` : ""}.</div>
@@ -234,14 +323,27 @@ function render(){
     ${r.files.map(f => `<tr><td class="small">${esc(f.nazev)}${f.chyba ? `<br><span class="pill bad">${esc(f.chyba)}</span>` : ""}</td><td class="small">${p_short(f.part)}</td><td>${f.md5ok === null ? `<span class="pill idle">není v manifestu</span>` : yes(f.md5ok, "souhlasí", "nesouhlasí")}</td>${f.pdf ? `<td>${f.pdfa ? `<span class="pill ${f.pdfa[0] === "3" ? "ok" : "warn"}">${esc(f.pdfa)}</span>` : `<span class="pill warn">ne</span>`}</td><td>${yes(f.podpisy)}</td><td>${yes(f.razitko)}</td><td>${f.maText === undefined ? "" : yes(f.maText, "ano", "sken")}</td>` : `<td colspan="4" class="small muted">není PDF</td>`}</tr>`).join("")}
     </table></div></details></section>
 
+  <section class="card stack">
+    <div class="sec-h"><h3>Doklady a další přílohy</h3><span class="small muted">${r.files.filter(f => f.part === "doklad").length} dokladů v balíčku, ${r.files.filter(f => f.part === "priloha").length} přidaných příloh</span></div>
+    <p class="small">Sem patří vše, co v balíčku z portálu není: souhlasy vlastníků, plné moci, aktualizovaná vyjádření. Přílohy se čtou stejně jako doklady z balíčku, skeny se převádějí na text ve vašem prohlížeči.</p>
+    <div class="row"><label class="btn" for="att">Přidat přílohy</label><input id="att" type="file" accept=".pdf" multiple hidden>
+      <button class="btn brand" id="extract">${r.vytezeno ? "Vytěžit nově přidané" : "Vytěžit doklady a přílohy"}</button>
+      <span class="small muted" id="extstate">${r.vytezeno ? "" : `${r.files.filter(f => (f.part === "doklad" || f.part === "priloha") && f.maText === false).length} skenů, čtení potrvá několik minut`}</span></div>
+    ${r.files.some(f => f.vyt || f.part === "priloha") ? `<div class="tblwrap"><table><tr><th>Soubor</th><th>Druh</th><th>Vydal (odhad)</th><th>Značka</th><th>Datum</th><th>Stanovisko</th><th>Zmíněné parcely</th></tr>
+    ${r.files.filter(f => f.part === "doklad" || f.part === "priloha").sort((a, b) => (b.part === "priloha") - (a.part === "priloha") || (b.vyt?.vlastnik || 0) - (a.vyt?.vlastnik || 0)).map(f => { const v = f.vyt;
+      const pill = !v ? `<span class="pill idle">nevytěženo</span>` : `<span class="pill ${/^nesouhlas/.test(v.stanovisko) ? "bad" : /podm/.test(v.stanovisko) ? "warn" : /^souhlas|^bez/.test(v.stanovisko) ? "ok" : "idle"}">${esc(v.stanovisko)}</span>`;
+      return `<tr><td class="small">${esc(f.nazev)}${f.part === "priloha" ? ` <span class="pill info">příloha</span>` : ""}${f.ocr ? ` <span class="src">sken</span>` : ""}${v?.chyba ? `<br><span class="pill bad">${esc(v.chyba)}</span>` : ""}</td><td class="small">${esc(v?.druh || "")}${v?.vlastnik ? `<br><b>vlastník pozemků</b>` : ""}</td><td class="small">${esc(v?.vydal || "")}</td><td class="small mono">${esc(v?.znacka || "")}</td><td class="small num">${v?.datum ? v.datum.split("-").reverse().map(Number).join(". ") : ""}</td><td>${pill}</td><td class="small mono">${esc((v?.parcely || []).join(", "))}</td></tr>`; }).join("")}
+    </table></div>` : ""}
+  </section>
+
   <section class="card stack" id="savebox"></section>`;
   renderSave();
 }
-const p_short = p => ({ zadost: "žádost", doklad: "doklad", jine: "mimo" }[p] || p);
+const p_short = p => ({ zadost: "žádost", doklad: "doklad", priloha: "příloha", jine: "mimo" }[p] || p);
 function renderSave(){
   const b = $("#savebox"); if (!b) return;
   b.innerHTML = `<h3>Uložit do databáze</h3>
-    <p class="small">Uloží se údaje žádosti, pozemky, výsledky kontrol a u každého souboru název, otisk a zjištěné vlastnosti. Samotné soubory zůstávají ve vašem počítači.</p>
+    <p class="small">Uloží se údaje žádosti, pozemky, výsledky kontrol, vytěžené údaje z dokladů a příloh a u každého souboru název, otisk a zjištěné vlastnosti. Samotné soubory zůstávají ve vašem počítači.</p>
     ${R.saved ? `<p><span class="pill ok">Uloženo</span> <span class="mono small">${esc(R.saved)}</span></p>`
       : user ? `<div><button class="btn pri" id="save">Uložit řízení jako koncept</button></div>`
       : `<p class="small muted">Pro uložení se nahoře přihlaste odkazem z e-mailu. Výsledky analýzy vidíte i bez přihlášení.</p>`}`;
@@ -256,7 +358,10 @@ async function save(){
       zadost: { zadost: r.zadost, pruvodni_list: r.A, nalezy: r.nalezy } }).select("id").single());
     const id = row.id, poz = r.A?.pozemky.length ? r.A.pozemky : (z.pozemky || []);
     if (poz.length) await must(sb.from("pozemky").insert(poz.map(p => ({ rizeni: id, katastr_kod: r.A?.kuKod || 0, parcela: p.parcela, vymera: p.vymera, druh: p.druh }))));
-    await must(sb.from("soubory").insert(r.files.map(f => ({ rizeni: id, nazev: f.nazev, cast_dokumentace: f.part, sha256: f.sha256, ma_text: f.maText ?? null, pdfa: f.pdfa ?? null, pocet_podpisu: f.podpisy ?? null, ma_casove_razitko: f.razitko ?? null }))));
+    const sou = await must(sb.from("soubory").insert(r.files.map(f => ({ rizeni: id, nazev: f.nazev, cast_dokumentace: f.part, sha256: f.sha256, ma_text: f.maText ?? null, pdfa: f.pdfa ?? null, pocet_podpisu: f.podpisy ?? null, ma_casove_razitko: f.razitko ?? null }))).select("id,sha256"));
+    const sid = new Map(sou.map(x => [x.sha256, x.id])), vy = r.files.filter(f => f.vyt && !f.vyt.chyba);
+    if (vy.length) await must(sb.from("vyjadreni").insert(vy.map(f => ({ rizeni: id, soubor: sid.get(f.sha256), druh: f.vyt.vlastnik ? "vyjádření vlastníka" : f.vyt.druh, vydal_nazev: f.vyt.vydal, znacka: f.vyt.znacka, ze_dne: f.vyt.datum, stanovisko: f.vyt.stanovisko,
+      souhlasne: /^souhlas|^bez/.test(f.vyt.stanovisko) ? true : /^nesouhlas/.test(f.vyt.stanovisko) ? false : null, podminky: { obsahuje_podminky: f.vyt.podminky, parcely: f.vyt.parcely, platnost: f.vyt.platnost, cteno_ze_skenu: !!f.ocr } }))));
     await must(sb.from("kontroly").insert(r.kontroly.map(k => ({ rizeni: id, pravidlo: k.pravidlo, vysledek: k.vysledek, blokujici: k.blokujici, zduvodneni: k.zduvodneni }))));
     await must(sb.from("udalosti").insert({ rizeni: id, typ: "balicek.analyzovan", puvodce: user.id, data: { souboru: r.files.length, blokuje: r.kontroly.filter(k => k.vysledek === "blokuje").length } }));
     R.saved = id; renderSave(); toast("Řízení uloženo jako koncept.");

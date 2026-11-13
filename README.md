@@ -16,7 +16,7 @@ Stav: klikací prototyp. Analýza dokumentace, registry a platba jsou simulovan�
 |---|---|
 | `index.html` | prototyp (jedna stránka, bez sestavování) |
 | `podani.html`, `podani.js` | skutečné zpracování balíčku BPP v prohlížeči, kontroly, uložení do Supabase; `podani.js` používá i e-shop v `index.html` |
-| `vendor/` | knihovny (JSZip, pdf.js, SparkMD5, supabase-js) |
+| `vendor/` | knihovny (JSZip, pdf.js, SparkMD5, supabase-js), písmo Roboto, `vendor/ocr/` čtení skenů (Tesseract.js s českými daty) |
 | `supabase/migrations/` | datový model, nasazený v projektu Supabase `povolovna` |
 | `tools/pdfcheck.py` | kontrola deklarace PDF/A, podpisů a časových razítek ve složce s PDF |
 

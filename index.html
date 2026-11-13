@@ -225,6 +225,7 @@ pre{font-family:var(--mono);font-size:12.5px;background:var(--sunk);border-radiu
 <script src="vendor/spark-md5.min.js"></script>
 <script src="vendor/pdf.min.js"></script>
 <script src="vendor/supabase.js"></script>
+<script src="vendor/ocr/tesseract.min.js"></script>
 <script src="podani.js"></script>
 <script>
 /* ===== Data vycházejí ze skutečného spisu zrychleného řízení; osoby, firmy, IČO, místo a značky jsou anonymizované ===== */
@@ -781,7 +782,7 @@ function vReal(){
     <div><h2>Zkontrolujte, co jsme vyčetli</h2><p class="muted">Výsledky jsou z vašeho balíčku. Soubory se zpracovaly ve vašem prohlížeči a nikam se neodeslaly.</p></div>
     <div id="progress" class="card" hidden></div>
     <div id="out" class="stack" style="gap:16px"></div>
-    <div class="issue soft small">Z balíčku zatím čteme žádost, průvodní list, pozemky a vlastnosti souborů. Účastníky řízení, souhlasy a obsah vyjádření doplní další iterace. Platba a průběh řízení v dalších krocích jsou simulace.</div>
+    <div class="issue soft small">Z balíčku čteme žádost, průvodní list, pozemky a vlastnosti souborů. Doklady a přidané přílohy vytěžíte tlačítkem níže. Okruh účastníků řízení zatím neurčujeme. Platba a průběh řízení v dalších krocích jsou simulace.</div>
     <div class="row" id="realnext" ${window.Povolovna && Povolovna.result ? "" : "hidden"}><button class="btn pri big" data-act="toPay">Pokračovat k platbě</button><button class="btn" data-act="otherPkg">Nahrát jiný balíček</button></div>
   </div>`;
 }
