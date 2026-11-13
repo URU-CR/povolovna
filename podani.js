@@ -296,58 +296,89 @@ function checks(r){
 /* ---------- zobrazení ---------- */
 const PILL = { ok: ["ok", "V pořádku"], upozorneni: ["warn", "Upozornění"], blokuje: ["bad", "Brání odeslání"], neprovedeno: ["idle", "Neprovedeno"] };
 const yes = (v, t = "ano", f = "ne") => v ? `<span class="pill ok">${t}</span>` : `<span class="pill warn">${f}</span>`;
+const BLOCKS = [
+  ["soubory", "Balíček a soubory", ["manifest", "uplnost"]],
+  ["zadost", "Žádost", []],
+  ["pozemky", "Pozemky", ["shoda_pozemku", "shoda_udaju"]],
+  ["format", "Formát a autorizace souborů", ["format_pdfa3", "autorizacni_razitko", "casove_razitko", "textova_vrstva"]],
+  ["doklady", "Doklady a přílohy", ["souhlas_vlastnika", "stanoviska"]]
+];
+const RANK = { blokuje: 3, upozorneni: 2, neprovedeno: 1, ok: 0 };
+const openBlocks = new Set();
+document.addEventListener("toggle", e => { const id = e.target.dataset && e.target.dataset.block; if (id) e.target.open ? openBlocks.add(id) : openBlocks.delete(id); }, true);
+document.addEventListener("click", e => {
+  const m = e.target.dataset && e.target.dataset.expand; if (!m || !R) return;
+  openBlocks.clear();
+  const has = (rules, v) => R.kontroly.some(k => rules.includes(k.pravidlo) && k.vysledek === v);
+  for (const [id, , rules] of BLOCKS) if (m === "vse" || (m === "chyby" && has(rules, "blokuje")) || (m === "upozorneni" && has(rules, "upozorneni"))) openBlocks.add(id);
+  render();
+});
+function blockState(rules){ return R.kontroly.filter(k => rules.includes(k.pravidlo)).reduce((w, k) => RANK[k.vysledek] > RANK[w] ? k.vysledek : w, "ok"); }
 function render(){
   if (!R || !$("#out")) return;
-  const r = R, z = r.zadost, a = r.A, blok = r.kontroly.filter(k => k.vysledek === "blokuje").length, upo = r.kontroly.filter(k => k.vysledek === "upozorneni").length;
+  const r = R, z = r.zadost, a = r.A, blokK = r.kontroly.filter(k => k.vysledek === "blokuje"), upoK = r.kontroly.filter(k => k.vysledek === "upozorneni");
   const parts = ["zadost", "A", "B", "C", "D", "doklad", "priloha", "jine"].map(p => [p, r.files.filter(f => f.part === p)]).filter(x => x[1].length);
   const os = (n, o) => o ? `<dt>${n}</dt><dd>${esc(o.nazev)}${o.ico ? `, IČO ${esc(o.ico)}` : ""} <span class="src">žádost XML</span></dd>` : "";
+  const dp = r.files.filter(f => f.part === "doklad" || f.part === "priloha");
+  const body = {
+    soubory: `<p class="small">Balíček ${esc(r.balicek)}: ${r.files.length} souborů${r.manifest ? `, formát BPP ${esc(r.manifest.verze)}, vytvořil ${esc(r.manifest.vytvoril)}` : ""}.</p>
+      <div class="tblwrap"><table><tr><th>Část</th><th class="r">Souborů</th></tr>${parts.map(([p, fs]) => `<tr><td>${PART_NAME[p]}</td><td class="r num">${fs.length}</td></tr>`).join("")}</table></div>`,
+    zadost: z ? `<dl class="kv">
+      <dt>Číslo záměru</dt><dd class="mono">${esc(z.pid)}</dd>
+      <dt>Název</dt><dd>${esc(z.nazev)} <span class="src">žádost XML</span></dd>
+      ${a?.nazev ? `<dt>Název v dokumentaci</dt><dd>${esc(a.nazev)} <span class="src">A, průvodní list</span></dd>` : ""}
+      <dt>Místo</dt><dd>${esc(z.misto)}${a?.ku ? `, k. ú. ${esc(a.ku)} [${a.kuKod}]` : ""}</dd>
+      <dt>Druh stavby</dt><dd>${z.novaStavba ? "nová stavba, " : ""}${esc(z.druh)}</dd>
+      <dt>Termíny</dt><dd>${esc(z.zahajeni)} až ${esc(z.dokonceni)}</dd>
+      ${os("Stavebník", z.zadatel)}${os("Zástupce", z.zastupce)}${os("Stavební podnikatel", z.podnikatel)}
+      ${a?.autorizace.length ? `<dt>Autorizace</dt><dd>${a.autorizace.map(esc).join(", ")} <span class="src">A, průvodní list</span></dd>` : ""}
+    </dl>` : `<p class="small muted">Žádost v XML nebyla v balíčku nalezena.</p>`,
+    pozemky: z || a ? `<div class="tblwrap"><table><tr><th>Parcela</th><th class="r">Výměra v dokumentaci</th><th class="r">Výměra v žádosti</th><th>Druh</th><th>Stav</th></tr>
+      ${[...new Set([...(a?.pozemky || []), ...(z?.pozemky || [])].map(p => p.parcela))].map(k => { const p = a?.pozemky.find(x => x.parcela === k), q = z?.pozemky.find(x => x.parcela === k);
+        const st = !a || !z ? `<span class="pill idle">neporovnáno</span>` : !q ? `<span class="pill bad">chybí v žádosti</span>` : !p ? `<span class="pill bad">chybí v dokumentaci</span>` : p.vymera !== q.vymera ? `<span class="pill warn">jiná výměra</span>` : `<span class="pill ok">souhlasí</span>`;
+        return `<tr><td class="mono">${esc(k)}</td><td class="r num">${p?.vymera ?? "–"}</td><td class="r num">${q?.vymera ?? "–"}</td><td>${esc(p?.druh || q?.druh || "")}</td><td>${st}</td></tr>`; }).join("")}
+      </table></div>` : "",
+    format: `<p class="small muted">Kontroluje se deklarace v souboru, ne plná validace. Tyto kontroly běží ve zkušebním režimu a neblokují.</p>
+      <div class="tblwrap"><table><tr><th>Část</th><th class="r">Souborů</th><th class="r">PDF/A-3</th><th class="r">S podpisem</th><th class="r">S časovým razítkem</th><th class="r">Skenů bez textu</th></tr>
+      ${parts.map(([p, fs]) => { const pd = fs.filter(f => f.pdf); return `<tr><td>${PART_NAME[p]}</td><td class="r num">${fs.length}</td><td class="r num">${pd.filter(f => f.pdfa && f.pdfa[0] === "3").length}</td><td class="r num">${pd.filter(f => f.podpisy).length}</td><td class="r num">${pd.filter(f => f.razitko).length}</td><td class="r num">${pd.filter(f => f.maText === false).length}</td></tr>`; }).join("")}
+      </table></div>
+      <details class="inner" style="margin-top:12px"><summary>Všech ${r.files.length} souborů</summary>
+      <div class="tblwrap" style="margin-top:8px"><table><tr><th>Soubor</th><th>Část</th><th>Otisk dle manifestu</th><th>PDF/A</th><th>Podpis</th><th>Čas. razítko</th><th>Text</th></tr>
+      ${r.files.map(f => `<tr><td class="small">${esc(f.nazev)}${f.chyba ? `<br><span class="pill bad">${esc(f.chyba)}</span>` : ""}</td><td class="small">${p_short(f.part)}</td><td>${f.md5ok === null ? `<span class="pill idle">není v manifestu</span>` : yes(f.md5ok, "souhlasí", "nesouhlasí")}</td>${f.pdf ? `<td>${f.pdfa ? `<span class="pill ${f.pdfa[0] === "3" ? "ok" : "warn"}">${esc(f.pdfa)}</span>` : `<span class="pill warn">ne</span>`}</td><td>${yes(f.podpisy)}</td><td>${yes(f.razitko)}</td><td>${f.maText === undefined ? "" : yes(f.maText, "ano", "sken")}</td>` : `<td colspan="4" class="small muted">není PDF</td>`}</tr>`).join("")}
+      </table></div></details>`,
+    doklady: `<p class="small">${dp.filter(f => f.part === "doklad").length} dokladů v balíčku, ${dp.filter(f => f.part === "priloha").length} přidaných příloh. Další přílohy můžete přidat i teď, jako ZIP nebo jednotlivá PDF.</p>
+      <div class="row"><label class="btn" for="att">Přidat přílohy</label><input id="att" type="file" accept=".pdf,.zip" multiple hidden>
+        ${dp.some(f => f.pdf && !f.vyt) ? `<button class="btn brand" id="extract">Vytěžit ${r.vytezeno ? "nově přidané" : "doklady a přílohy"}</button>` : ""}
+        <span class="small muted" id="extstate">${dp.some(f => f.pdf && !f.vyt) ? "některé dokumenty ještě nejsou vytěžené" : "vše vytěženo"}</span></div>
+      ${(() => {
+        const head = `<tr><th>Soubor</th><th>Druh</th><th>Vydal (odhad)</th><th>Značka</th><th>Datum</th><th>Stanovisko</th><th>Zmíněné parcely</th></tr>`;
+        const row = f => { const v = f.vyt;
+          const pill = !v ? `<span class="pill idle">nevytěženo</span>` : `<span class="pill ${/^nesouhlas/.test(v.stanovisko) ? "bad" : /podm/.test(v.stanovisko) ? "warn" : /^souhlas|^bez/.test(v.stanovisko) ? "ok" : "idle"}">${esc(v.stanovisko)}</span>`;
+          return `<tr><td class="small">${esc(f.nazev)}${f.part === "priloha" ? ` <span class="pill info">příloha</span>` : ""}${f.ocr ? ` <span class="src">sken</span>` : ""}${v?.chyba ? `<br><span class="pill bad">${esc(v.chyba)}</span>` : ""}</td><td class="small">${esc(v?.druh || "")}${v?.vlastnik ? `<br><b>vlastník pozemků</b>` : ""}</td><td class="small">${esc(v?.vydal || "")}</td><td class="small mono">${esc(v?.znacka || "")}</td><td class="small num">${v?.datum ? v.datum.split("-").reverse().map(Number).join(". ") : ""}</td><td>${pill}</td><td class="small mono">${esc((v?.parcely || []).join(", "))}</td></tr>`; };
+        const key = f => f.part === "priloha" || !f.vyt || f.vyt.vlastnik || f.vyt.chyba || /^nesouhlas/.test(f.vyt.stanovisko);
+        const top = dp.filter(key).sort((x, y) => (y.vyt?.vlastnik || 0) - (x.vyt?.vlastnik || 0)), rest = dp.filter(f => !key(f));
+        return (top.length ? `<p class="small muted" style="margin-top:6px">Přílohy, vyjádření vlastníka a dokumenty s nesouhlasem nebo chybou:</p><div class="tblwrap"><table>${head}${top.map(row).join("")}</table></div>` : "")
+          + (rest.length ? `<details class="inner" style="margin-top:12px"><summary>Ostatní doklady (${rest.length})</summary><div class="tblwrap" style="margin-top:8px"><table>${head}${rest.map(row).join("")}</table></div></details>` : "");
+      })()}`
+  };
+  const cnt = st => (st === "blokuje" ? blokK : upoK).length;
   $("#out").innerHTML = `
-  <div class="issue ${blok ? "" : upo ? "soft" : "fixed"}"><b>${blok ? `${blok} ${blok === 1 ? "kontrola brání" : "kontroly brání"} odeslání` : "Nic nebrání odeslání"}${upo ? `, ${upo} upozornění` : ""}.</b> Balíček ${esc(r.balicek)}: ${r.files.length} souborů${r.manifest ? `, formát BPP ${esc(r.manifest.verze)}, vytvořil ${esc(r.manifest.vytvoril)}` : ""}.</div>
-
-  <section class="card"><div class="sec-h"><h3>Kontroly</h3><span class="small muted">${r.kontroly.length} pravidel</span></div>
-    <div class="tblwrap"><table><tr><th>Kontrola</th><th>Výsledek</th><th>Zjištění</th></tr>
-    ${r.kontroly.map(k => `<tr><td><b>${esc(k.nazev)}</b>${k.blokujici ? "" : `<br><span class="small muted">zkušební režim, neblokuje</span>`}</td><td><span class="pill ${PILL[k.vysledek][0]}">${PILL[k.vysledek][1]}</span></td><td class="small">${esc(k.zduvodneni)}</td></tr>`).join("")}
-    </table></div></section>
-
-  ${z ? `<section class="card"><div class="sec-h"><h3>Žádost</h3><span class="src">${esc(z.pid)}</span></div><dl class="kv">
-    <dt>Název</dt><dd>${esc(z.nazev)} <span class="src">žádost XML</span></dd>
-    ${a?.nazev ? `<dt>Název v dokumentaci</dt><dd>${esc(a.nazev)} <span class="src">A, průvodní list</span></dd>` : ""}
-    <dt>Místo</dt><dd>${esc(z.misto)}${a?.ku ? `, k. ú. ${esc(a.ku)} [${a.kuKod}]` : ""}</dd>
-    <dt>Druh stavby</dt><dd>${z.novaStavba ? "nová stavba, " : ""}${esc(z.druh)}</dd>
-    <dt>Termíny</dt><dd>${esc(z.zahajeni)} až ${esc(z.dokonceni)}</dd>
-    ${os("Stavebník", z.zadatel)}${os("Zástupce", z.zastupce)}${os("Stavební podnikatel", z.podnikatel)}
-    ${a?.autorizace.length ? `<dt>Autorizace</dt><dd>${a.autorizace.map(esc).join(", ")} <span class="src">A, průvodní list</span></dd>` : ""}
-  </dl></section>` : ""}
-
-  ${z || a ? `<section class="card"><div class="sec-h"><h3>Pozemky</h3><span class="pill ${r.nalezy.length ? "warn" : "ok"}">${r.nalezy.length ? "nálezy: " + r.nalezy.length : "bez nálezu"}</span></div>
-    <div class="tblwrap"><table><tr><th>Parcela</th><th class="r">Výměra v dokumentaci</th><th class="r">Výměra v žádosti</th><th>Druh</th><th>Stav</th></tr>
-    ${[...new Set([...(a?.pozemky || []), ...(z?.pozemky || [])].map(p => p.parcela))].map(k => { const p = a?.pozemky.find(x => x.parcela === k), q = z?.pozemky.find(x => x.parcela === k);
-      const st = !a || !z ? `<span class="pill idle">neporovnáno</span>` : !q ? `<span class="pill bad">chybí v žádosti</span>` : !p ? `<span class="pill bad">chybí v dokumentaci</span>` : p.vymera !== q.vymera ? `<span class="pill warn">jiná výměra</span>` : `<span class="pill ok">souhlasí</span>`;
-      return `<tr><td class="mono">${esc(k)}</td><td class="r num">${p?.vymera ?? "–"}</td><td class="r num">${q?.vymera ?? "–"}</td><td>${esc(p?.druh || q?.druh || "")}</td><td>${st}</td></tr>`; }).join("")}
-    </table></div></section>` : ""}
-
-  <section class="card"><div class="sec-h"><h3>Soubory, formát a autorizace</h3><span class="small muted">kontrola deklarace v souboru, ne plná validace</span></div>
-    <div class="tblwrap"><table><tr><th>Část</th><th class="r">Souborů</th><th class="r">PDF/A-3</th><th class="r">S podpisem</th><th class="r">S časovým razítkem</th><th class="r">Skenů bez textu</th></tr>
-    ${parts.map(([p, fs]) => { const pd = fs.filter(f => f.pdf); return `<tr><td>${PART_NAME[p]}</td><td class="r num">${fs.length}</td><td class="r num">${pd.filter(f => f.pdfa && f.pdfa[0] === "3").length}</td><td class="r num">${pd.filter(f => f.podpisy).length}</td><td class="r num">${pd.filter(f => f.razitko).length}</td><td class="r num">${pd.filter(f => f.maText === false).length}</td></tr>`; }).join("")}
-    </table></div>
-    <details style="margin-top:12px"><summary>Všech ${r.files.length} souborů</summary>
-    <div class="tblwrap" style="margin-top:8px"><table><tr><th>Soubor</th><th>Část</th><th>Otisk dle manifestu</th><th>PDF/A</th><th>Podpis</th><th>Čas. razítko</th><th>Text</th></tr>
-    ${r.files.map(f => `<tr><td class="small">${esc(f.nazev)}${f.chyba ? `<br><span class="pill bad">${esc(f.chyba)}</span>` : ""}</td><td class="small">${p_short(f.part)}</td><td>${f.md5ok === null ? `<span class="pill idle">není v manifestu</span>` : yes(f.md5ok, "souhlasí", "nesouhlasí")}</td>${f.pdf ? `<td>${f.pdfa ? `<span class="pill ${f.pdfa[0] === "3" ? "ok" : "warn"}">${esc(f.pdfa)}</span>` : `<span class="pill warn">ne</span>`}</td><td>${yes(f.podpisy)}</td><td>${yes(f.razitko)}</td><td>${f.maText === undefined ? "" : yes(f.maText, "ano", "sken")}</td>` : `<td colspan="4" class="small muted">není PDF</td>`}</tr>`).join("")}
-    </table></div></details></section>
-
-  <section class="card stack">
-    <div class="sec-h"><h3>Doklady a další přílohy</h3><span class="small muted">${r.files.filter(f => f.part === "doklad").length} dokladů v balíčku, ${r.files.filter(f => f.part === "priloha").length} přidaných příloh</span></div>
-    <p class="small">Přílohy jsou vše, co v balíčku z portálu není: souhlasy vlastníků, plné moci, aktualizovaná vyjádření. Další můžete přidat i teď, jako ZIP nebo jednotlivá PDF.</p>
-    <div class="row"><label class="btn" for="att">Přidat přílohy</label><input id="att" type="file" accept=".pdf,.zip" multiple hidden>
-      <button class="btn brand" id="extract">${r.vytezeno ? "Vytěžit nově přidané" : "Vytěžit doklady a přílohy"}</button>
-      <span class="small muted" id="extstate">${r.files.some(f => f.pdf && (f.part === "doklad" || f.part === "priloha") && !f.vyt) ? "některé dokumenty ještě nejsou vytěžené" : "vše vytěženo"}</span></div>
-    ${r.files.some(f => f.vyt || f.part === "priloha") ? `<div class="tblwrap"><table><tr><th>Soubor</th><th>Druh</th><th>Vydal (odhad)</th><th>Značka</th><th>Datum</th><th>Stanovisko</th><th>Zmíněné parcely</th></tr>
-    ${r.files.filter(f => f.part === "doklad" || f.part === "priloha").sort((a, b) => (b.part === "priloha") - (a.part === "priloha") || (b.vyt?.vlastnik || 0) - (a.vyt?.vlastnik || 0)).map(f => { const v = f.vyt;
-      const pill = !v ? `<span class="pill idle">nevytěženo</span>` : `<span class="pill ${/^nesouhlas/.test(v.stanovisko) ? "bad" : /podm/.test(v.stanovisko) ? "warn" : /^souhlas|^bez/.test(v.stanovisko) ? "ok" : "idle"}">${esc(v.stanovisko)}</span>`;
-      return `<tr><td class="small">${esc(f.nazev)}${f.part === "priloha" ? ` <span class="pill info">příloha</span>` : ""}${f.ocr ? ` <span class="src">sken</span>` : ""}${v?.chyba ? `<br><span class="pill bad">${esc(v.chyba)}</span>` : ""}</td><td class="small">${esc(v?.druh || "")}${v?.vlastnik ? `<br><b>vlastník pozemků</b>` : ""}</td><td class="small">${esc(v?.vydal || "")}</td><td class="small mono">${esc(v?.znacka || "")}</td><td class="small num">${v?.datum ? v.datum.split("-").reverse().map(Number).join(". ") : ""}</td><td>${pill}</td><td class="small mono">${esc((v?.parcely || []).join(", "))}</td></tr>`; }).join("")}
-    </table></div>` : ""}
-  </section>
-
+  <div class="issue ${blokK.length ? "" : upoK.length ? "soft" : "fixed"}">
+    <b>${blokK.length ? `Odeslání brání ${blokK.length} ${blokK.length === 1 ? "věc" : blokK.length < 5 ? "věci" : "věcí"}` : "Nic nebrání odeslání"}${upoK.length ? `, ${upoK.length} upozornění` : ""}.</b>
+    ${blokK.length ? `<ul class="find" style="margin-top:8px">${blokK.map(k => `<li><span class="pill bad">${esc(k.nazev)}</span><span class="small">${esc(k.zduvodneni)}</span></li>`).join("")}</ul>` : ""}
+  </div>
+  <div class="row"><span class="small muted">Rozbalit</span>
+    <button class="btn" data-expand="chyby" ${cnt("blokuje") ? "" : "disabled"}>Chyby (${cnt("blokuje")})</button>
+    <button class="btn" data-expand="upozorneni" ${cnt("upozorneni") ? "" : "disabled"}>Upozornění (${cnt("upozorneni")})</button>
+    <button class="btn" data-expand="vse">Vše</button>
+    <button class="btn link small" data-expand="nic">Sbalit vše</button></div>
+  ${BLOCKS.map(([id, title, rules]) => { const ks = r.kontroly.filter(k => rules.includes(k.pravidlo)), st = blockState(rules), n = x => ks.filter(k => k.vysledek === x).length;
+    return `<details class="blk st-${st}" data-block="${id}" ${openBlocks.has(id) ? "open" : ""}>
+      <summary><span class="bt">${title}</span><span class="row" style="gap:6px">${n("blokuje") ? `<span class="pill bad">chyby: ${n("blokuje")}</span>` : ""}${n("upozorneni") ? `<span class="pill warn">upozornění: ${n("upozorneni")}</span>` : ""}${ks.length && !n("blokuje") && !n("upozorneni") ? `<span class="pill ok">v pořádku</span>` : ""}${!ks.length ? `<span class="pill idle">k nahlédnutí</span>` : ""}</span></summary>
+      <div class="stack" style="margin-top:12px">
+        ${ks.length ? `<ul class="find">${ks.map(k => `<li><span class="pill ${PILL[k.vysledek][0]}">${PILL[k.vysledek][1]}</span><span class="small"><b>${esc(k.nazev)}.</b> ${esc(k.zduvodneni)}${k.blokujici ? "" : ` <span class="muted">Zkušební režim, neblokuje.</span>`}</span></li>`).join("")}</ul>` : ""}
+        ${body[id]}
+      </div></details>`; }).join("")}
   <section class="card stack" id="savebox"></section>`;
   renderSave();
 }
