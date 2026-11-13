@@ -214,12 +214,18 @@ pre{font-family:var(--mono);font-size:12.5px;background:var(--sunk);border-radiu
       <button data-law="dnes" aria-pressed="true" title="Co jde postavit bez změny zákonů">Dnešní zákony</button>
       <button data-law="cil" aria-pressed="false" title="Proces po navržených změnách legislativy">Cílový stav</button>
     </div>
+    <div class="auth" id="auth" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"></div>
     <span class="demo-note">Prototyp · simulace na anonymizovaných datech skutečného spisu</span>
   </div>
 </header>
 <main class="wrap" id="app"></main>
 <div class="toast" id="toast" hidden></div>
 
+<script src="vendor/jszip.min.js"></script>
+<script src="vendor/spark-md5.min.js"></script>
+<script src="vendor/pdf.min.js"></script>
+<script src="vendor/supabase.js"></script>
+<script src="podani.js"></script>
 <script>
 /* ===== Data vycházejí ze skutečného spisu zrychleného řízení; osoby, firmy, IČO, místo a značky jsou anonymizované ===== */
 const C = {
@@ -263,7 +269,7 @@ const C = {
 const kc = n => n.toLocaleString("cs-CZ").replace(/ /g, " ") + " Kč";
 
 /* ===== Stav ===== */
-const S = { view: "stavebnik", law: "dnes", step: 0, logged: false, account: false, moFixed: false, pdfFixed: false, pay: "karta",
+const S = { view: "stavebnik", law: "dnes", step: 0, logged: false, account: false, moFixed: false, pdfFixed: false, real: false, pay: "karta",
             phase: "draft", /* draft → submitted → approved → final */ trackAt: 0, tab: "prehled", scanAt: -1 };
 let timers = [];
 const later = (fn, ms) => timers.push(setTimeout(fn, ms));
@@ -321,11 +327,11 @@ function vUpload(){
         <p style="font-weight:600;font-size:17px">Přetáhněte sem soubory</p>
         <p class="muted small" style="margin:6px 0 16px">PDF, ZIP, balíček z Portálu stavebníka, výkresy, skeny vyjádření</p>
         <div class="row" style="justify-content:center">
-          <label class="btn" for="file">Vybrat soubory</label><input id="file" type="file" multiple hidden>
+          <label class="btn" for="file">Vybrat ZIP</label><input id="file" type="file" accept=".zip" hidden>
           <button class="btn brand" data-act="demo">Použít ukázkovou dokumentaci</button>
         </div>
       </div>
-      <p class="small muted">Ukázka vychází ze skutečné dokumentace zázemí pro řidiče MHD; osoby, firmy a místo jsou anonymizované. Vlastní soubory prototyp přijme, ale analýzu předvede na ukázce. <a href="https://uru-cr.github.io/povolovna/podani.html">Skutečné nahrání a kontrola balíčku</a> už běží na samostatné stránce.</p>
+      <p class="small muted">Ukázka vychází ze skutečné dokumentace zázemí pro řidiče MHD; osoby, firmy a místo jsou anonymizované. Vlastní ZIP z Portálu stavebníka se zpracuje doopravdy, ve vašem prohlížeči.</p>
     </div>`;
   return stepper() + `
     <div class="card stack" style="max-width:720px">
@@ -473,8 +479,8 @@ function vPay(){
       <dl class="kv" style="grid-template-columns:110px minmax(0,1fr)">
         <dt>Co</dt><dd>Povolení záměru ve zrychleném řízení</dd>
         <dt>Stavba</dt><dd>${C.nazev}</dd>
-        <dt>Žadatel</dt><dd>Dopravní podnik, a.s., v zast. Projekční kancelář, s.r.o.</dd>
-        <dt>Přílohy</dt><dd>70 souborů, otisk balíčku uložen</dd>
+        <dt>Žadatel</dt><dd>${S.real && Povolovna.result?.zadost?.zadatel ? escH(Povolovna.result.zadost.zadatel.nazev) : "Dopravní podnik, a.s., v zast. Projekční kancelář, s.r.o."}</dd>
+        <dt>Přílohy</dt><dd>${S.real && Povolovna.result ? Povolovna.result.files.length : 70} souborů, otisky spočteny</dd>
       </dl>
       <div class="tot"><span>K úhradě</span><b class="num">${kc(C.poplatek)}</b></div>
       <button class="btn pri big" data-act="submit">Zaplatit a odeslat žádost</button>
@@ -540,6 +546,7 @@ function vTrack(){
 }
 function vStavebnik(){
   if (S.phase !== "draft") return vTrack();
+  if (S.real && S.step === 2) return vReal();
   return [vCatalog, vUpload, vReview, vPay][S.step]();
 }
 
@@ -752,16 +759,34 @@ function render(){
   document.querySelectorAll("[data-law]").forEach(b=>b.setAttribute("aria-pressed", b.dataset.law===S.law));
   app.innerHTML = {stavebnik:vStavebnik, urad:vUrad, koncept:vKoncept}[S.view]();
   const drop = $("#drop");
+  if (S.view==="stavebnik" && S.real && S.step===2 && S.phase==="draft" && window.Povolovna) Povolovna.render();
   if (drop){
     ["dragover","dragenter"].forEach(e=>drop.addEventListener(e,ev=>{ev.preventDefault();drop.classList.add("over")}));
     ["dragleave","drop"].forEach(e=>drop.addEventListener(e,ev=>{ev.preventDefault();drop.classList.remove("over")}));
-    drop.addEventListener("drop",()=>startScan(true));
-    $("#file").addEventListener("change",()=>startScan(true));
+    drop.addEventListener("drop",ev=>takeReal(ev.dataTransfer.files[0]));
+    $("#file").addEventListener("change",ev=>takeReal(ev.target.files[0]));
   }
 }
 function go(view){ S.view = view; try{ history.replaceState(null,"","#"+view); }catch(e){} render(); window.scrollTo(0,0); }
+const escH = v => String(v ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+function takeReal(file){
+  if (!file) return;
+  if (!window.Povolovna || !window.JSZip || !window.pdfjsLib){ startScan(true); return; }
+  S.real = true; S.step = 2; render(); window.scrollTo(0,0);
+  Povolovna.take(file).then(()=>{ const r = Povolovna.result; if (r){ C.nazev = escH(r.zadost?.nazev || r.A?.nazev) || C.nazev; const n = $("#realnext"); if (n) n.hidden = false; } });
+}
+function vReal(){
+  return stepper() + `
+  <div class="stack" style="gap:16px">
+    <div><h2>Zkontrolujte, co jsme vyčetli</h2><p class="muted">Výsledky jsou z vašeho balíčku. Soubory se zpracovaly ve vašem prohlížeči a nikam se neodeslaly.</p></div>
+    <div id="progress" class="card" hidden></div>
+    <div id="out" class="stack" style="gap:16px"></div>
+    <div class="issue soft small">Z balíčku zatím čteme žádost, průvodní list, pozemky a vlastnosti souborů. Účastníky řízení, souhlasy a obsah vyjádření doplní další iterace. Platba a průběh řízení v dalších krocích jsou simulace.</div>
+    <div class="row" id="realnext" ${window.Povolovna && Povolovna.result ? "" : "hidden"}><button class="btn pri big" data-act="toPay">Pokračovat k platbě</button><button class="btn" data-act="otherPkg">Nahrát jiný balíček</button></div>
+  </div>`;
+}
 function startScan(own){
-  if (own) toast("Soubory přijaty. Analýzu předvedu na ukázkové dokumentaci.");
+  if (own) toast("Skutečné zpracování balíčku běží jen ve verzi na GitHub Pages. Předvedu ukázku.");
   S.scanAt = 0; render();
   const tick = () => { S.scanAt++; if (S.view==="stavebnik" && S.step===1) render(); if (S.scanAt < SCAN.length) later(tick, 650); };
   later(tick, 650);
@@ -774,6 +799,7 @@ const ACT = {
   order(){ S.step = 1; render(); },
   login(){ S.logged = true; toast("Přihlášeno přes Identitu občana (simulace)."); render(); },
   demo(){ startScan(false); },
+  otherPkg(){ S.real = false; S.step = 1; S.scanAt = -1; render(); },
   toReview(){ S.step = 2; render(); window.scrollTo(0,0); },
   askMO(){ toast("Žádost o souhlas odeslána statutárnímu městu…"); later(()=>{ S.moFixed = true; render(); toast("Vlastník souhlas udělil."); }, 1400); },
   askPdf(){ toast("Odkaz k opravě odeslán hlavnímu projektantovi…"); later(()=>{ S.pdfFixed = true; render(); toast("Projektant nahrál opravené soubory."); }, 1400); },
@@ -785,7 +811,7 @@ const ACT = {
   submit(){ S.phase = "submitted"; S.trackAt = 0; render(); window.scrollTo(0,0); runTrack(); },
   goUrad(){ S.tab = "prehled"; go("urad"); },
   goKoncept(){ go("koncept"); },
-  restart(){ clearTimers(); Object.assign(S,{step:0,moFixed:false,pdfFixed:false,phase:"draft",trackAt:0,scanAt:-1,account:false,tab:"prehled"}); render(); },
+  restart(){ clearTimers(); Object.assign(S,{step:0,moFixed:false,pdfFixed:false,real:false,phase:"draft",trackAt:0,scanAt:-1,account:false,tab:"prehled"}); render(); },
   approve(){ if (S.phase==="draft") S.trackAt = 5; S.phase = "approved"; S.tab = "doruceni"; render(); toast("Podepsáno. Rozhodnutí se doručuje 11 účastníkům."); },
   waive(){ S.phase = "final"; S.trackAt = 9; render(); toast("Rozhodnutí je pravomocné. Doložka, ověřená dokumentace a štítek jsou vyhotoveny."); },
   returnIt(){ toast("V prototypu není vrácení žádosti zapojené."); },
