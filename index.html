@@ -582,6 +582,27 @@ function uradHead(sub){
   return `<div class="stack" style="gap:10px"><h1 style="font-size:28px">Úřad rozvoje území ČR</h1>
     <p class="muted">Vyhrazené stavby v jediném stupni. ${sub||""}</p></div>`;
 }
+function oDokumentace(){
+  const r = realR();
+  if (!r) return `<div class="card stack">
+    <div class="sec-h"><h3>Dokumentace a přílohy</h3><span class="pill idle">ukázka</span></div>
+    <div class="tblwrap"><table><tr><th>Část</th><th class="r">Souborů</th></tr>${[["A Průvodní list",1],["B Souhrnná technická zpráva",1],["C Situační výkresy",3],["D Dokumentace objektů",20],["Doklady",42]].map(x=>`<tr><td>${x[0]}</td><td class="r num">${x[1]}</td></tr>`).join("")}</table></div>
+    <p class="small muted">V ukázce nejsou skutečné soubory. Nahrajte dokumentaci v pohledu Stavebník a najdete ji tady celou, každý soubor s náhledem.</p></div>`;
+  const order = ["zadost","A","B","C","D","doklad","priloha","jine"], F = S.dokFiltr || "vse";
+  const groups = order.map(p=>[p, r.files.map((f,i)=>[f,i]).filter(x=>x[0].part===p)]).filter(g=>g[1].length);
+  const stan = v => !v ? "" : `<span class="pill ${/^nesouhlas/.test(v.stanovisko)?"bad":/podm/.test(v.stanovisko)?"warn":/^souhlas|^bez/.test(v.stanovisko)?"ok":"idle"}">${escH(v.stanovisko)}</span>`;
+  return `<div class="card stack">
+    <div class="sec-h"><h3>Dokumentace a přílohy</h3><span class="small muted">${r.files.length} souborů od stavebníka</span></div>
+    <div class="row"><span class="small muted">Zobrazit</span>${[["vse","Vše"]].concat(groups.map(g=>[g[0], (PNAME[g[0]]||g[0]).split(" ")[0]+" ("+g[1].length+")"])).map(([k,n])=>`<button class="btn" data-act="dokFiltr" data-f="${k}" ${F===k?'style="background:var(--brand);color:var(--brand-ink)"':""}>${n}</button>`).join("")}</div>
+    ${groups.filter(g=>F==="vse"||F===g[0]).map(([p,fs])=>`<div><h3 style="font-size:16px;margin:6px 0">${PNAME[p]||p}</h3>
+      <div class="tblwrap"><table><tr><th>Soubor</th><th>Vlastnosti</th>${p==="doklad"||p==="priloha"?"<th>Vytěženo</th>":""}<th></th></tr>
+      ${fs.map(([f,i])=>`<tr><td class="small">${escH(f.nazev)}<br><span class="muted">${f.stran?f.stran+" stran · ":""}${(f.velikost/1024/1024).toFixed(1)} MB</span></td>
+        <td class="small">${f.pdf?`${f.podpisy?`<span class="pill ok">podpis</span> `:""}${f.razitko?`<span class="pill ok">čas. razítko</span> `:""}${f.maText===false?`<span class="pill warn">sken</span> `:""}${f.pdfa?`<span class="pill ok">PDF/A-${escH(f.pdfa)}</span>`:""}`:"není PDF"}</td>
+        ${p==="doklad"||p==="priloha"?`<td class="small">${f.vyt?`${stan(f.vyt)}${f.vyt.vlastnik?" <b>vlastník pozemků</b>":""}${f.vyt.datum?" · "+f.vyt.datum.split("-").reverse().map(Number).join(". "):""}`:`<span class="muted">nevytěženo</span>`}</td>`:""}
+        <td class="r"><button class="btn" data-act="prevFile" data-i="${i}">Náhled</button></td></tr>`).join("")}
+      </table></div></div>`).join("")}
+    <p class="small muted">Soubory jsou uložené jen v tomto prohlížeči. Úředník na jiném počítači je zatím neuvidí.</p></div>`;
+}
 function oZajmy(){
   const z = [["Život a zdraví","bez dotčení","auto"],["Životní prostředí","zásah do plochy zeleně, podmínka uvedení do původního stavu","spec"],["Památková péče","mimo chráněná území","auto"],["Veřejná infrastruktura","křížení sítí, podmínky správců převzaty","spec"],["Zemědělství a lesy","bez záboru","auto"],["Nerostné bohatství","mimo chráněná ložisková území","auto"],["Energetika","bez dotčení","auto"],["Požární ochrana","nejnižší kategorie, posuzuje úřad sám","auto"],["Prevence závažných havárií","netýká se","auto"],["Samospráva obce","obec je účastníkem, souhlasila","auto"]];
   return `<div class="card">
@@ -594,7 +615,7 @@ function oZajmy(){
 }
 function vUrad(){
   const st = officeStatus(), cil = S.law === "cil";
-  const tabs = [["prehled","Přehled"],["zajmy","Veřejné zájmy"],["rozhodnuti","Návrh rozhodnutí"],["doruceni","Účastníci a doručení"],["spis","Spis"]];
+  const tabs = [["prehled","Přehled"],["dokumentace","Dokumentace"],["zajmy","Veřejné zájmy"],["rozhodnuti","Návrh rozhodnutí"],["doruceni","Účastníci a doručení"],["spis","Spis"]];
   return `
   <div class="stack" style="gap:20px">
     ${uradHead(cil?"Systém rozhoduje sám tam, kde není co uvažovat. Vy řešíte výjimky a kontrolujete vzorek.":"Systém připraví všechno, vy rozhodujete a podepisujete.")}
@@ -613,7 +634,7 @@ function vUrad(){
       </div>
       <div class="stack">
         <div class="tabs" role="tablist">${tabs.map(([k,n])=>`<button role="tab" data-tab="${k}" aria-selected="${S.tab===k}">${n}</button>`).join("")}</div>
-        ${{prehled:oPrehled, zajmy:oZajmy, rozhodnuti:oRozhodnuti, doruceni:oDoruceni, spis:oSpis}[S.tab]()}
+        ${{prehled:oPrehled, dokumentace:oDokumentace, zajmy:oZajmy, rozhodnuti:oRozhodnuti, doruceni:oDoruceni, spis:oSpis}[S.tab]()}
       </div>
     </div>
   </div>`;
@@ -696,7 +717,7 @@ const hlava = t => `<p class="small muted">Úřad rozvoje území České republ
 function docPreview(n){
   const r = realR(), zad = r?.zadost, kdo = zad?.zadatel ? escH(zad.zadatel.nazev) + (zad.zastupce ? ", v zastoupení " + escH(zad.zastupce.nazev) : "") : "Dopravní podnik, a.s., v zastoupení Projekční kancelář, s.r.o.";
   if (n === "1"){
-    const files = r ? `<div class="scrollbox"><table><tr><th>Soubor</th><th>Část</th><th></th></tr>${r.files.map((f,i)=>`<tr><td class="small">${escH(f.nazev)}</td><td class="small">${PNAME[f.part]||f.part}</td><td class="r"><button class="btn" data-act="prevFile" data-i="${i}">Náhled</button></td></tr>`).join("")}</table></div>`
+    const files = r ? `<div class="scrollbox"><table><tr><th>Soubor</th><th>Část</th><th></th></tr>${r.files.map((f,i)=>`<tr><td class="small">${escH(f.nazev)}</td><td class="small">${PNAME[f.part]||f.part}</td><td class="r"><button class="btn" data-act="prevFile" data-i="${i}" data-back="1">Náhled</button></td></tr>`).join("")}</table></div>`
       : `<div class="tblwrap"><table><tr><th>Část</th><th class="r">Souborů</th></tr>${[["A Průvodní list",1],["B Souhrnná technická zpráva",1],["C Situační výkresy",3],["D Dokumentace objektů",20],["Doklady",42]].map(x=>`<tr><td>${x[0]}</td><td class="r num">${x[1]}</td></tr>`).join("")}</table></div><p class="small muted">V ukázce nejsou skutečné soubory. Po nahrání vlastní dokumentace tu bude náhled každého souboru.</p>`;
     return ["Žádost o povolení záměru", `<div class="stack"><div class="doc" style="max-width:none">${hlava("ŽÁDOST O POVOLENÍ ZÁMĚRU")}
       <p><b>Záměr:</b> ${C.nazev}</p><p><b>Žadatel:</b> ${kdo}</p>
@@ -848,10 +869,12 @@ function render(){
   document.querySelectorAll("[data-law]").forEach(b=>b.setAttribute("aria-pressed", b.dataset.law===S.law));
   app.innerHTML = {stavebnik:vStavebnik, urad:vUrad, koncept:vKoncept}[S.view]();
   if ($("#upbox") && window.Povolovna && window.JSZip && window.pdfjsLib) Povolovna.mountUpload();
+  if (S.view==="stavebnik" && S.real && S.step===2 && S.phase==="draft" && window.Povolovna && Povolovna.result) Povolovna.render();
 }
 function go(view){ S.view = view; try{ history.replaceState(null,"","#"+view); }catch(e){} render(); window.scrollTo(0,0); }
 var escH = v => String(v ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 if (window.Povolovna){
+  Povolovna.onRestore = () => { const r = Povolovna.result; if (!r) return; S.real = true; if (S.phase === "draft" && S.step < 2) S.step = 2; C.nazev = escH(r.zadost?.nazev || r.A?.nazev) || C.nazev; render(); };
   Povolovna.onStart = () => { S.real = true; S.step = 2; render(); window.scrollTo(0,0); };
   Povolovna.onDone = () => { const r = Povolovna.result; if (r){ C.nazev = escH(r.zadost?.nazev || r.A?.nazev) || C.nazev; const n = $("#realnext"); if (n) n.hidden = false; } };
 }
@@ -882,8 +905,10 @@ const ACT = {
   otherPkg(){ if (window.Povolovna) Povolovna.reset(); S.real = false; S.step = 1; S.scanAt = -1; render(); },
   prev(t){ dlgDoc = t.dataset.doc; const [title, html] = docPreview(dlgDoc); freeUrl(); showDlg(title, html, false); },
   prevFile(t){ const f = realR()?.files[+t.dataset.i]; if (!f) return; freeUrl();
-    if (f.pdf){ dlgUrl = URL.createObjectURL(new Blob([f.bytes], { type: "application/pdf" })); showDlg(f.nazev, `<iframe src="${dlgUrl}" title="Náhled dokumentu"></iframe>`, true); }
-    else showDlg(f.nazev, `<pre>${escH(new TextDecoder("utf-8").decode(f.bytes).slice(0, 40000))}</pre>`, true); },
+    const back = t.dataset.back === "1";
+    if (f.pdf){ dlgUrl = URL.createObjectURL(new Blob([f.bytes], { type: "application/pdf" })); showDlg(f.nazev, `<iframe src="${dlgUrl}" title="Náhled dokumentu"></iframe>`, back); }
+    else showDlg(f.nazev, `<pre>${escH(new TextDecoder("utf-8").decode(f.bytes).slice(0, 40000))}</pre>`, back); },
+  dokFiltr(t){ S.dokFiltr = t.dataset.f; render(); },
   dlgBack(){ freeUrl(); const [title, html] = docPreview(dlgDoc); showDlg(title, html, false); },
   closeDlg(){ freeUrl(); $("#dlg").close(); },
   toReview(){ S.step = 2; render(); window.scrollTo(0,0); },

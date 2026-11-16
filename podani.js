@@ -185,7 +185,7 @@ async function addAttachments(list){
     }
     R.files.push(rec);
   }
-  R.saved = null; R.kontroly = checks(R); if (!batch) render();
+  R.saved = null; R.kontroly = checks(R); if (!batch){ await keep(); render(); }
 }
 
 /* ---------- čtení skenů a vytěžení dokladů ---------- */
@@ -242,7 +242,7 @@ async function extractAll(){
       f.vyt = extractDoc(text, parcely, skip); f.ocr = f.maText === false;
     } catch (e){ f.vyt = { druh: "jiné", stanovisko: "neurčeno", parcely: [], chyba: e.message || String(e) }; }
   }
-  extracting = false; R.vytezeno = true; R.saved = null; R.kontroly = checks(R); if (!batch) render();
+  extracting = false; R.vytezeno = true; R.saved = null; R.kontroly = checks(R); if (!batch){ await keep(); render(); }
 }
 
 function compare({ zadost, A }){
@@ -395,6 +395,7 @@ function renderSave(){
   const b = $("#savebox"); if (!b) return;
   b.innerHTML = `<h3>Uložit do databáze</h3>
     <p class="small">Uloží se údaje žádosti, pozemky, výsledky kontrol, vytěžené údaje z dokladů a příloh a u každého souboru název, otisk a zjištěné vlastnosti. Samotné soubory zůstávají ve vašem počítači.</p>
+    <p class="small muted">${R.ulozenoLokalne ? "Soubory jsou uschované v tomto prohlížeči, takže je po obnovení stránky najdete znovu, včetně pohledu úřadu. Smažete je tlačítkem pro nahrání jiných souborů." : "Soubory se nepodařilo uschovat v prohlížeči; po obnovení stránky je bude potřeba nahrát znovu."}</p>
     ${R.saved ? `<p><span class="pill ok">Uloženo</span> <span class="mono small">${esc(R.saved)}</span></p>`
       : user ? `<div><button class="btn pri" id="save">Uložit řízení jako koncept</button></div>`
       : `<p class="small muted">Pro uložení se nahoře přihlaste odkazem z e-mailu. Výsledky analýzy vidíte i bez přihlášení.</p>`}`;
@@ -418,6 +419,12 @@ async function save(){
     R.saved = id; renderSave(); toast("Řízení uloženo jako koncept.");
   } catch (e){ btn.disabled = false; toast("Uložení se nepodařilo: " + (e.message || e)); }
 }
+
+/* ---------- úschova v prohlížeči (IndexedDB): soubory přežijí obnovení stránky, nikam se neodesílají ---------- */
+function idb(){ return new Promise((ok, no) => { const q = indexedDB.open("povolovna", 1); q.onupgradeneeded = () => q.result.createObjectStore("podani"); q.onsuccess = () => ok(q.result); q.onerror = () => no(q.error); }); }
+async function idbPut(val){ try { const d = await idb(); await new Promise((ok, no) => { const t = d.transaction("podani", "readwrite"); val ? t.objectStore("podani").put(val, "posledni") : t.objectStore("podani").delete("posledni"); t.oncomplete = ok; t.onerror = () => no(t.error); }); d.close(); return true; } catch (e){ return false; } }
+async function idbGet(){ try { const d = await idb(); const v = await new Promise((ok, no) => { const q = d.transaction("podani").objectStore("podani").get("posledni"); q.onsuccess = () => ok(q.result); q.onerror = () => no(q.error); }); d.close(); return v || null; } catch (e){ return null; } }
+async function keep(){ if (R) R.ulozenoLokalne = await idbPut(Object.assign({}, R, { saved: null })); }
 
 /* ---------- vstup: dokumentace + přílohy, pak vše naráz ---------- */
 function mountUpload(){
@@ -444,7 +451,7 @@ async function run(){
   try { await analyze(sel.dok); await addAttachments(sel.pri); await extractAll(); }
   catch (e){ R = null; if ($("#out")) $("#out").innerHTML = `<div class="issue"><b>Soubory se nepodařilo zpracovat.</b> ${esc(e.message || e)} Zkontrolujte, že dokumentace je ZIP z Portálu stavebníka.</div>`; if ($("#upbox")) $("#upbox").hidden = false; }
   batch = false; if ($("#progress")) $("#progress").hidden = true;
-  render(); if (R && api.onDone) api.onDone();
+  await keep(); render(); if (R && api.onDone) api.onDone();
 }
 document.addEventListener("change", e => {
   if (e.target.id === "f-dok") pick("dok", [...e.target.files]);
@@ -459,8 +466,9 @@ for (const ev of ["dragover", "dragenter", "dragleave", "drop"]) document.addEve
   e.preventDefault(); t.classList.toggle("over", ev === "dragover" || ev === "dragenter");
   if (ev === "drop") pick(t.dataset.up, [...e.dataTransfer.files]);
 });
-Object.assign(api, { mountUpload, render, reset(){ R = null; sel.dok = null; sel.pri = []; } });
+Object.assign(api, { mountUpload, render, reset(){ R = null; sel.dok = null; sel.pri = []; idbPut(null); } });
 Object.defineProperty(api, "result", { get: () => R });
 window.Povolovna = api;
 mountUpload();
+api.restored = idbGet().then(v => { if (v && !R){ R = v; R.kontroly = checks(R); if (document.body.dataset.page === "podani"){ if ($("#upbox")) $("#upbox").hidden = true; render(); } if (api.onRestore) api.onRestore(); } return !!v; });
 })();

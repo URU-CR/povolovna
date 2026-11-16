@@ -234,6 +234,7 @@ details.inner summary{cursor:pointer;font-weight:700}
   </div>
   <div id="upbox"></div>
   <div id="progress" class="card" hidden></div>
+  <div class="row" id="again" hidden><button class="btn" id="newup">Nahrát jiné soubory</button></div>
   <div id="out" class="stack" style="gap:16px"></div>
 </main>
 <div class="toast" id="toast" hidden></div>
@@ -244,6 +245,10 @@ details.inner summary{cursor:pointer;font-weight:700}
 <script src="vendor/supabase.js"></script>
 <script src="vendor/ocr/tesseract.min.js"></script>
 <script src="podani.js"></script>
+<script>
+Povolovna.onRestore = Povolovna.onDone = () => { document.getElementById("again").hidden = false; };
+document.getElementById("newup").addEventListener("click", () => { Povolovna.reset(); location.reload(); });
+</script>
 
 </body>
 </html>
